@@ -199,7 +199,9 @@ export function initDeleteModalIntegration(baseUrl = '') {
                             showNotification('success', data.message || 'Eliminación completada');
                             // Reload or navigate away
                             setTimeout(() => {
-                                window.location.href = new URL('../index.html', import.meta.url).href;
+                                // This module lives in /js/modules/, hence the
+                                // '../../' hop back to the site root.
+                                window.location.href = new URL('../../index.html', import.meta.url).href;
                             }, 2000);
                         } else {
                             showNotification('error', data.message || 'Error en la eliminación');

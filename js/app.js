@@ -875,9 +875,10 @@ function wireDashboard() {
 
   // The legal pages are static files next to index.html, so they are
   // addressed relative to the SITE ROOT (the front may live on a sub-path).
+  // This module lives in /js/, hence the '../' hop.
   const legalLinks = [
-    ['#/terminos', new URL('./terminos.html', import.meta.url).href],
-    ['#/privacidad', new URL('./privacidad.html', import.meta.url).href],
+    ['#/terminos', new URL('../terminos.html', import.meta.url).href],
+    ['#/privacidad', new URL('../privacidad.html', import.meta.url).href],
   ];
   for (const pair of legalLinks) {
     document.querySelectorAll('a[href="' + pair[0] + '"]').forEach((link) => {

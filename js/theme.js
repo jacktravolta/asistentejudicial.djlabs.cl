@@ -10,7 +10,7 @@
 //   <button type="button" data-skin-toggle aria-label="Cambiar color de acento">…</button>
 //
 // Usage (programmatic, e.g. the shared nav):
-//   import { createThemeToggle } from '/js/theme.js';
+//   import { createThemeToggle } from './theme.js';
 //   container.append(createThemeToggle({ withSkin: true }));
 
 const STORAGE_TEMA = 'aj:tema';

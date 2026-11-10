@@ -363,7 +363,10 @@
         msg.className = 'mt-3 text-sm leading-relaxed text-slate-600';
         msg.textContent = message;
         const link = document.createElement('a');
-        link.href = new URL('../index.html#/privacidad', window.location.href).href;
+        // New tab: point straight at the static legal page. The SPA's
+        // '#/privacidad' hash is handled by a click handler that does not run
+        // in a freshly opened tab, which would land on the landing page.
+        link.href = new URL('../privacidad.html', window.location.href).href;
         link.target = '_blank';
         link.rel = 'noopener';
         link.className = 'mt-2 inline-block text-xs font-medium text-brand-700 underline underline-offset-2 hover:text-brand-800';

@@ -11,7 +11,7 @@
 // later in the "Preguntas" page and the app page.
 //
 // Usage:
-//   import { mountChat } from '/js/chat-widget.js';
+//   import { mountChat } from './chat-widget.js';
 //   mountChat(document.getElementById('chat'), {
 //     title: 'Preguntas',
 //     welcomeMessage: 'Hola, ¿en qué puedo ayudarte?',
@@ -1794,8 +1794,11 @@ export function mountChat(container, options = {}) {
 
       const msg = el('p', { class: 'mt-3 text-sm leading-relaxed text-slate-600' }, [message]);
       // Link a la política de privacidad (nueva pestaña: no pierde el modal).
+      // The SPA's '#/privacidad' hash is resolved by a click handler that only
+      // exists on the page it was clicked in — a new tab would boot into the
+      // landing instead. Point straight at the static legal page.
       const link = el('a', {
-        href: new URL('../index.html#/privacidad', import.meta.url).href,
+        href: new URL('../privacidad.html', import.meta.url).href,
         target: '_blank',
         rel: 'noopener',
         class: 'mt-2 inline-block text-xs font-medium text-brand-700 underline underline-offset-2 hover:text-brand-800'
