@@ -834,18 +834,65 @@ async function lazyInitModules() {
 
 // ----- Mobile navigation -----
 
+/* The hamburger and the panel it controls are static markup in the landing
+   header: #menu-toggle opens #mobile-menu (a dropdown under the bar, not a
+   side drawer). The listeners are attached at boot() — wireDashboard() only
+   runs once the user is logged in, so wiring them there left the menu dead
+   on the public landing. */
 function openMobileNav() {
-  const nav = $id('mobile-nav');
+  const nav = $id('mobile-menu');
+  const toggle = $id('menu-toggle');
   if (nav) {
     nav.classList.remove('hidden');
+  }
+  if (toggle) {
+    toggle.setAttribute('aria-expanded', 'true');
+  }
+  const openIcon = $id('icon-open');
+  const closeIcon = $id('icon-close');
+  if (openIcon) {
+    openIcon.classList.add('hidden');
+  }
+  if (closeIcon) {
+    closeIcon.classList.remove('hidden');
   }
 }
 
 function closeMobileNav() {
-  const nav = $id('mobile-nav');
+  const nav = $id('mobile-menu');
+  const toggle = $id('menu-toggle');
   if (nav) {
     nav.classList.add('hidden');
   }
+  if (toggle) {
+    toggle.setAttribute('aria-expanded', 'false');
+  }
+  const openIcon = $id('icon-open');
+  const closeIcon = $id('icon-close');
+  if (openIcon) {
+    openIcon.classList.remove('hidden');
+  }
+  if (closeIcon) {
+    closeIcon.classList.add('hidden');
+  }
+}
+
+function wireMobileNav() {
+  const toggle = $id('menu-toggle');
+  if (toggle) {
+    toggle.addEventListener('click', () => {
+      const nav = $id('mobile-menu');
+      if (nav && nav.classList.contains('hidden')) {
+        openMobileNav();
+      } else {
+        closeMobileNav();
+      }
+    });
+  }
+  // Following a link closes the panel; otherwise it stays open on screen.
+  document.querySelectorAll('#mobile-menu a[href]').forEach((link) => {
+    link.addEventListener('click', closeMobileNav);
+  });
 }
 
 function wireDashboard() {
@@ -860,18 +907,8 @@ function wireDashboard() {
     }
   }
 
-  const menuToggle = $id('mobile-menu-toggle');
-  if (menuToggle) {
-    menuToggle.addEventListener('click', openMobileNav);
-  }
-  const menuClose = $id('mobile-nav-close');
-  if (menuClose) {
-    menuClose.addEventListener('click', closeMobileNav);
-  }
-  const overlay = $id('mobile-nav-overlay');
-  if (overlay) {
-    overlay.addEventListener('click', closeMobileNav);
-  }
+  // The mobile menu belongs to the static header: it is wired once at boot()
+  // (wireMobileNav), not here — wiring it twice would toggle it twice.
 
   // The legal pages are static files next to index.html, so they are
   // addressed relative to the SITE ROOT (the front may live on a sub-path).
@@ -1107,11 +1144,136 @@ function wireLandingForms() {
   }
 }
 
+/**
+ * Contact form of the landing: POST to the API and show the outcome inline.
+ *
+ * Without a handler the browser submitted the form natively, which reloaded
+ * the page and lost the state of the send. The API is always reached by its
+ * public domain (apiUrl -> window.__API_BASE__), never by an internal IP.
+ *
+ * Ported from the ley-datos landing, which speaks the same POST /contact
+ * contract: honeypot "website" empty, plus name/email/message.
+ */
+function wireContactForm() {
+  const form = $id('contact-form');
+  if (!form) {
+    return;
+  }
+
+  const statusEl = $id('contact-status');
+  const submit = $id('contact-submit');
+  const submitLabel = $id('contact-submit-label');
+  const OK_CLASSES = ['border-emerald-200', 'bg-emerald-50/60', 'text-emerald-900'];
+  const FAIL_CLASSES = ['border-rose-200', 'bg-rose-50', 'text-rose-800'];
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const GENERIC_ERROR = 'No pudimos enviarlo ahora; puedes reintentar en un momento.';
+
+  function setFieldError(input, message) {
+    const box = input ? $id(input.id + '-error') : null;
+    if (!box) {
+      return;
+    }
+    box.textContent = message;
+    box.classList.remove('hidden');
+  }
+
+  function clearFieldErrors() {
+    form.querySelectorAll('[id$="-error"]').forEach((box) => {
+      box.textContent = '';
+      box.classList.add('hidden');
+    });
+  }
+
+  function showStatus(message, ok) {
+    if (!statusEl) {
+      return;
+    }
+    statusEl.classList.remove('hidden', ...OK_CLASSES, ...FAIL_CLASSES);
+    statusEl.classList.add(...(ok ? OK_CLASSES : FAIL_CLASSES));
+    statusEl.textContent = message;
+  }
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    clearFieldErrors();
+
+    const nameInput = form.querySelector('[name="name"]');
+    const emailInput = form.querySelector('[name="email"]');
+    const messageInput = form.querySelector('[name="message"]');
+    const honeypot = (form.querySelector('[name="website"]')?.value || '').trim();
+    const name = (nameInput?.value || '').trim();
+    const email = (emailInput?.value || '').trim();
+    const message = (messageInput?.value || '').trim();
+
+    if (name === '') {
+      setFieldError(nameInput, 'Escribe tu nombre para saber cómo responderte.');
+      nameInput?.focus();
+      return;
+    }
+
+    if (!EMAIL_RE.test(email)) {
+      setFieldError(emailInput, 'Escribe tu correo para que podamos responderte (ejemplo: nombre@correo.cl).');
+      emailInput?.focus();
+      return;
+    }
+
+    if (message === '') {
+      setFieldError(messageInput, 'Cuéntanos brevemente en qué te podemos ayudar.');
+      messageInput?.focus();
+      return;
+    }
+
+    // Honeypot filled: a bot is in the field. Pretend success and keep the
+    // request — and the table — clean, like the backend does.
+    if (honeypot !== '') {
+      form.reset();
+      showStatus('Gracias. Recibimos tu mensaje; te escribiremos en breve.', true);
+      return;
+    }
+
+    if (submit) {
+      submit.disabled = true;
+    }
+    const originalText = submitLabel ? submitLabel.textContent : '';
+    if (submitLabel) {
+      submitLabel.textContent = 'Enviando…';
+    }
+
+    try {
+      const response = await fetch(apiUrl('/contact'), {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name, email: email, message: message, website: '' }),
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (response.ok && data && data.success) {
+        form.reset();
+        showStatus('Gracias. Recibimos tu mensaje; te escribiremos a ' + email + ' en breve.', true);
+      } else {
+        showStatus(GENERIC_ERROR, false);
+      }
+    } catch (_) {
+      showStatus(GENERIC_ERROR, false);
+    } finally {
+      if (submit) {
+        submit.disabled = false;
+      }
+      if (submitLabel) {
+        submitLabel.textContent = originalText;
+      }
+    }
+  });
+}
+
 // ----- Boot -----
 
 async function boot() {
   // Forms are static in the landing markup — wire them unconditionally.
   wireLandingForms();
+  wireContactForm();
+  wireMobileNav();
 
   // "Entrar al panel" on the session-aware landing (desktop + mobile).
   for (const id of ['back-to-panel', 'back-to-panel-m']) {
