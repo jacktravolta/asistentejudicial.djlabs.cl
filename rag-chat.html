@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://api.djlabs.cl https://cdn.jsdelivr.net; worker-src 'self' blob: https://cdn.jsdelivr.net; frame-src https://www.youtube-nocookie.com https://player.vimeo.com; media-src 'self' data: blob: https:; manifest-src 'self'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Test RAG — Chat independiente</title>
+<script src="./api-config.js"></script>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f1f5f9; color: #0f172a; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 16px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+  h1 { font-size: 18px; margin: 0; }
+  .who { font-size: 13px; color: #475569; }
+  .badge { background: #fff; border: 1px solid #cbd5e1; border-radius: 999px; padding: 4px 10px; font-size: 12px; }
+  .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; margin-bottom: 12px; }
+  #chat { height: 46vh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+  .msg { max-width: 85%; padding: 8px 12px; border-radius: 12px; font-size: 14px; white-space: pre-wrap; word-break: break-word; }
+  .msg.user { align-self: flex-end; background: #dbeafe; }
+  .msg.bot { align-self: flex-start; background: #f8fafc; border: 1px solid #e2e8f0; }
+  .msg .meta { margin-top: 6px; font-size: 11px; color: #64748b; }
+  .msg details { margin-top: 6px; font-size: 11px; }
+  .msg pre { white-space: pre-wrap; word-break: break-word; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 6px; margin: 4px 0 0; max-height: 260px; overflow: auto; }
+  .row { display: flex; gap: 8px; margin-top: 10px; }
+  textarea { flex: 1; resize: vertical; min-height: 44px; max-height: 140px; border: 1px solid #cbd5e1; border-radius: 10px; padding: 8px 10px; font: inherit; }
+  button { border: 1px solid #cbd5e1; background: #fff; border-radius: 10px; padding: 8px 14px; font: inherit; cursor: pointer; }
+  button.primary { background: #2563eb; border-color: #2563eb; color: #fff; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .attach { display: flex; gap: 8px; margin-top: 8px; }
+  .attach input[type=text] { flex: 1; border: 1px solid #cbd5e1; border-radius: 10px; padding: 8px 10px; font: inherit; }
+  .attach input[name=aname] { width: 180px; }
+  .hint { font-size: 12px; color: #64748b; margin: 6px 0 0; }
+  .err { background: #fee2e2; border: 1px solid #fca5a5; color: #991b1b; border-radius: 10px; padding: 8px 12px; font-size: 13px; margin-top: 8px; display: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>🧪 Test RAG — chat independiente</h1>
+      <div class="who" id="who">verificando sesión…</div>
+    </div>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <label style="font-size:12px;color:#475569;">Corazón
+        <select id="heart"
+          style="border:1px solid #cbd5e1;border-radius:8px;padding:4px 8px;font:inherit;background:#fff;">
+          <option value="default">judicial (default)</option>
+          <option value="cv">cv — asistente curricular</option>
+          <option value="chat-corporativo">chat-corporativo</option>
+        </select>
+      </label>
+      <span class="badge" id="conv">conversación nueva</span>
+      <button id="newConv">Nueva conversación</button>
+    </div>
+  </header>
+
+  <div class="card">
+    <div id="chat"></div>
+    <div class="err" id="err"></div>
+    <div class="row">
+      <textarea id="q" placeholder="Escribe tu pregunta… (Enter para enviar)"></textarea>
+      <button class="primary" id="send">Enviar</button>
+    </div>
+    <div class="attach">
+      <input type="text" name="aname" id="aname" placeholder="nombre.txt">
+      <input type="text" id="atext" placeholder="Pega aquí texto para adjuntarlo como pendiente (probar adjuntos + RAG)">
+      <button id="attach">Adjuntar</button>
+    </div>
+    <p class="hint">El adjunto queda PENDIENTE: se incluye una vez en tu próxima pregunta y luego se marca como procesado. Los prompts se ven porque fake mode hace echo del prompt completo.</p>
+  </div>
+</div>
+
+<script src="js/inline/rag-chat-1.js"></script>
+
+  <!-- Quill se carga bajo demanda desde chat-editor.js (CDN jsdelivr + SRI) -->
+  <script src="./js/chat-editor.js"></script>
+</body>
+</html>

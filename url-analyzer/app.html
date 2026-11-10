@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="es" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://api.djlabs.cl https://cdn.jsdelivr.net; worker-src 'self' blob: https://cdn.jsdelivr.net; frame-src https://www.youtube-nocookie.com https://player.vimeo.com; media-src 'self' data: blob: https:; manifest-src 'self'">
+  <title>URL Analyzer — Panel</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <script src="../js/tailwind.config.js"></script>
+  <link rel="stylesheet" href="../css/tokens.css" />
+  <script src="../api-config.js"></script>
+  <script src="../js/inline/url-analyzer/app-1.js"></script>
+  <link rel="stylesheet" href="../css/tailwind.css">
+</head>
+<body class="min-h-screen bg-background text-foreground">
+  <header class="border-b border-border bg-background">
+    <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+      <h1 class="text-lg font-semibold">URL Analyzer</h1>
+      <div class="flex items-center gap-3">
+        <span id="balance" class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">— créditos</span>
+        <span id="user-name" class="text-xs text-slate-500"></span>
+        <a href="./index.html" class="text-xs text-slate-500 hover:text-brand-700 underline-offset-2 hover:underline">Salir</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-4xl mx-auto px-4 py-8 space-y-8">
+    <!-- Gate: sin sesión -->
+    <section id="gate" class="hidden rounded-2xl border border-slate-200 bg-white p-8 text-center">
+      <h2 class="text-lg font-semibold text-slate-900">Necesitas iniciar sesión</h2>
+      <p class="mt-2 text-sm text-slate-600">Para analizar URLs necesitas una sesión activa.</p>
+      <a href="./index.html" class="mt-4 inline-flex rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">Ir al inicio</a>
+    </section>
+
+    <!-- App -->
+    <section id="app" class="hidden space-y-8">
+      <!-- Analizador -->
+      <section class="rounded-2xl border border-slate-200 bg-white p-5 space-y-4">
+        <h2 class="text-base font-semibold text-slate-900">Analizar una página web</h2>
+        <div class="flex flex-col gap-2 sm:flex-row">
+          <input id="url-input" type="url" placeholder="https://ejemplo.com/pagina"
+                 class="flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100">
+          <button id="quote-btn" type="button"
+                  class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-brand-400 hover:text-brand-700">
+            Cotizar
+          </button>
+          <button id="analyze-btn" type="button" disabled
+                  class="rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50">
+            Analizar
+          </button>
+        </div>
+
+        <!-- Cotización -->
+        <div id="quote-box" class="hidden rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+          <p id="quote-total" class="font-medium"></p>
+          <p id="quote-detail" class="mt-1 text-xs leading-relaxed text-sky-700"></p>
+          <p class="mt-2 text-xs leading-relaxed text-sky-700">
+            Este análisis es una ayuda generada con IA: no reemplaza la revisión de un profesional.
+          </p>
+        </div>
+
+        <p id="error" class="hidden rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="alert"></p>
+
+        <!-- Resultado -->
+        <div id="result" class="hidden space-y-2">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-slate-800">Análisis</h3>
+            <div class="flex items-center gap-2">
+              <span id="result-meta" class="text-xs text-slate-400"></span>
+              <span id="result-actions" class="hidden items-center gap-1"></span>
+            </div>
+          </div>
+          <pre id="result-text" class="whitespace-pre-wrap rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm leading-relaxed text-slate-700"></pre>
+        </div>
+      </section>
+
+      <!-- Historial -->
+      <section class="space-y-3">
+        <div class="flex items-center justify-between">
+          <h2 class="text-base font-semibold text-slate-900">Tus análisis</h2>
+          <button id="history-refresh" type="button"
+                  class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-blue-400 hover:text-blue-700">
+            Actualizar
+          </button>
+        </div>
+        <div id="history-empty" class="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
+          Aún no tienes análisis. Entrega una URL arriba para comenzar.
+        </div>
+        <ul id="history" class="space-y-2"></ul>
+      </section>
+
+      <!-- Recarga -->
+      <section class="rounded-2xl border border-slate-200 bg-white p-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 class="text-sm font-semibold text-slate-800">¿Sin créditos?</h2>
+          <p class="text-xs leading-relaxed text-slate-500">
+            Recarga tu wallet para seguir analizando páginas. El saldo se comparte con tu cuenta.
+          </p>
+        </div>
+        <a href="../index.html#/wallet" class="inline-flex items-center justify-center rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700">
+          Recargar créditos
+        </a>
+      </section>
+    </section>
+  </main>
+
+  <script src="../js/inline/url-analyzer/app-2.js"></script>
+</body>
+</html>

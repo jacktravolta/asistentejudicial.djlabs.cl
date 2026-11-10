@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="es" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://api.djlabs.cl https://cdn.jsdelivr.net; worker-src 'self' blob: https://cdn.jsdelivr.net; frame-src https://www.youtube-nocookie.com https://player.vimeo.com; media-src 'self' data: blob: https:; manifest-src 'self'">
+  <title>URL Analyzer — Análisis de páginas con IA</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Tailwind CSS v3.3.3 via CDN -->
+  <script src="../js/tailwind.config.js"></script>
+  <link rel="stylesheet" href="../css/tokens.css" />
+  <script src="../api-config.js"></script>
+  <script src="../js/inline/url-analyzer/index-1.js"></script>
+  <link rel="stylesheet" href="../css/tailwind.css">
+</head>
+<body class="min-h-screen bg-background text-foreground">
+  <header class="border-b border-border bg-background">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+      <h1 class="text-xl font-semibold">URL Analyzer</h1>
+      <div class="flex items-center gap-3">
+        <button id="loginBtn" class="btn-login inline-flex items-center gap-2 px-4 py-2 rounded border border-input bg-background hover:bg-accent text-sm font-medium transition-colors">
+          Iniciar sesión
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto py-12 px-4">
+    <section class="prose max-w-none">
+      <h2 class="text-2xl font-bold tracking-tight mb-6">Analiza cualquier página web con IA</h2>
+      <p class="text-lg text-muted-foreground mb-8">
+        Entrega la URL de una página y recibe un análisis claro: resumen, propósito,
+        riesgos visibles y recomendaciones prácticas. Regístrate y recibe 100 créditos de bienvenida.
+      </p>
+
+      <div class="grid gap-6 md:grid-cols-2">
+        <div class="card">
+          <h3 class="font-medium mb-3">¿Qué ofrece?</h3>
+          <ul class="space-y-2 text-sm">
+            <li>✦ Resumen del contenido de cualquier página web</li>
+            <li>✦ Detección de riesgos y señales de alerta visibles</li>
+            <li>✦ Recomendaciones prácticas en lenguaje claro</li>
+            <li>✦ Wallet de créditos por análisis</li>
+            <li>✦ Aislamiento de datos por corazón url-analyzer</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h3 class="font-medium mb-3">Cómo funciona</h3>
+          <ol class="space-y-2 text-sm">
+            <li>Regístrate con nombre y email</li>
+            <li>Recibe un magic link de 15 minutos</li>
+            <li>Entrega la URL que quieres analizar</li>
+            <li>La IA analiza el contenido de la página</li>
+            <li>Recibe el análisis y guárdalo para consultarlo después</li>
+          </ol>
+        </div>
+      </div>
+
+      <div class="mt-6 rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">
+        <strong>Transparencia de costos:</strong> cada análisis cuesta
+        <span id="tariff-hint">la tarifa base más los tokens del contenido</span>.
+        Verás el desglose completo antes de confirmar.
+      </div>
+
+      <div class="mt-10 pt-10 border-t border-border">
+        <p class="text-sm text-muted-foreground">
+          El principio rector es: empatía, amabilidad y dignidad humana gobiernan todo. Todo lo demás es secundario.
+        </p>
+      </div>
+    </section>
+
+    <!-- Magic link email - campo visible con valor por defecto para el corazón url-analyzer -->
+    <div class="mt-6">
+      <label for="magic-link-email" class="block text-sm text-muted-foreground mb-1">
+        Correo electrónico
+      </label>
+      <input type="email" id="magic-link-email" value="test@test.com" class="border rounded p-2 visible">
+    </div>
+    <div class="mt-3">
+      <label for="login-password" class="block text-sm text-muted-foreground mb-1">
+        Contraseña (opcional: si la dejas vacía, te enviamos un enlace mágico)
+      </label>
+      <input type="password" id="login-password" autocomplete="current-password" placeholder="Tu contraseña" class="border rounded p-2 visible">
+    </div>
+    <button type="button" id="recover-link" class="block mt-3 text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground">Olvidé mi contraseña</button>
+  </main>
+
+  <footer class="border-t border-border mt-12 py-6 text-center text-sm text-muted-foreground">
+    <p>© 2026 URL Analyzer. Análisis con asistencia de IA. Requiere revisión humana.</p>
+  </footer>
+
+  <script src="../js/inline/url-analyzer/index-2.js"></script>
+</body>
+</html>

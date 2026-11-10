@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Validación de comprobantes</title>
+<meta name="robots" content="noindex, nofollow">
+<!-- CSP: nothing external, no frames, no object/embeds. Contracts this page
+     to (1) inline CSS/JS it ships with, (2) same-origin API calls only. -->
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; img-src data:; form-action 'none'; base-uri 'none'; frame-ancestors 'none'">
+<meta name="referrer" content="no-referrer">
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: #f1f5f9;
+    color: #0f172a;
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 24px 12px;
+  }
+  .wrap { width: 100%; max-width: 560px; }
+  .card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    overflow: hidden;
+  }
+  header {
+    background: #0e5c55;
+    color: #ecfdf5;
+    padding: 22px 24px;
+  }
+  header h1 { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: .2px; }
+  header p { margin: 6px 0 0; font-size: 13px; line-height: 1.5; color: #a7f3d0; }
+  main { padding: 20px 24px 24px; }
+  label { display: block; font-size: 13px; font-weight: 600; margin: 0 0 6px; color: #334155; }
+  input {
+    width: 100%;
+    padding: 11px 13px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    font-size: 14px;
+    color: #0f172a;
+    background: #f8fafc;
+  }
+  input:focus { outline: 2px solid #0e5c55; outline-offset: 0; border-color: #0e5c55; }
+  button {
+    margin-top: 10px;
+    width: 100%;
+    padding: 11px 14px;
+    border: 0;
+    border-radius: 10px;
+    background: #0e5c55;
+    color: #ecfdf5;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:disabled { opacity: .55; cursor: wait; }
+  .hint { font-size: 12px; color: #64748b; margin: 10px 0 0; line-height: 1.5; }
+  .result { margin-top: 18px; border-radius: 12px; padding: 16px 18px; line-height: 1.5; }
+  .r-ok { background: #ecfdf5; border-left: 4px solid #059669; color: #064e3b; }
+  .r-bad { background: #fef2f2; border-left: 4px solid #dc2626; color: #7f1d1d; }
+  .r-warn { background: #fffbeb; border-left: 4px solid #d97706; color: #92400e; }
+  .verdict { margin: 0 0 8px; font-size: 15px; font-weight: 700; }
+  .verdict .big { font-size: 22px; letter-spacing: .3px; display: block; margin-bottom: 2px; }
+  ul { margin: 0; padding-left: 18px; font-size: 13px; }
+  li { margin: 3px 0; }
+  .muted { color: #64748b; font-size: 12px; }
+  footer {
+    padding: 16px 24px;
+    border-top: 1px solid #e2e8f0;
+    font-size: 12px;
+    color: #64748b;
+    line-height: 1.5;
+  }
+</style>
+</head>
+<body>
+<script src="./api-config.js"></script>
+<div class="wrap">
+  <div class="card">
+    <header>
+      <h1>Validación de comprobantes</h1>
+      <p>Comprueba si el comprobante impreso en un PDF es <strong>válido</strong> o si fue <strong>modificado</strong>. Pega la URL de validación completa o solo el código.</p>
+    </header>
+    <main>
+      <label for="code">URL o código de validación</label>
+      <input id="code" type="text" autocomplete="off" spellcheck="false"
+             placeholder="https://…/voucher-verify.html?code=af39…  ·  o  32 caracteres hexadecimales">
+      <!-- Honeypot (UX-level anti-bot): hidden from humans, autofillers fill it. -->
+      <input id="hp" type="text" name="website" tabindex="-1" aria-hidden="true" autocomplete="off"
+             style="position:absolute;left:-9999px;height:0;width:0;opacity:0;" value="">
+      <button id="btn" type="button">Validar comprobante</button>
+      <p class="hint">El código aparece impreso en el PDF del comprobante (y en el correo de confirmación). No requiere cuenta ni datos personales.</p>
+
+      <div id="result" hidden></div>
+    </main>
+    <footer>
+      ¿Te da un resultado inesperado? Responde el correo donde recibiste el comprobante y lo revisamos contigo sin apuro. Esta página solo consulta al servidor que emitió el documento.
+    </footer>
+  </div>
+</div>
+
+<script src="js/inline/voucher-verify-1.js"></script>
+</body>
+</html>

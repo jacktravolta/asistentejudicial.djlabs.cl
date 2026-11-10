@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://api.djlabs.cl https://cdn.jsdelivr.net; worker-src 'self' blob: https://cdn.jsdelivr.net; frame-src https://www.youtube-nocookie.com https://player.vimeo.com; media-src 'self' data: blob: https:; manifest-src 'self'">
+<title>Diagnóstico — fuentes RAG</title>
+<style>
+body { font-family: system-ui, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; background: #f8fafc; color: #0f172a; }
+.card { background: #fff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+.ok { border-color: #34d399; background: #ecfdf5; }
+.bad { border-color: #f87171; background: #fef2f2; }
+pre { white-space: pre-wrap; word-break: break-all; font-size: 12px; background: #f1f5f9; padding: 8px; border-radius: 8px; max-height: 220px; overflow: auto; }
+h1 { font-size: 18px; } h2 { font-size: 14px; margin: 0 0 8px; }
+</style>
+</head>
+<body>
+<h1>Diagnóstico de la lista de fuentes</h1>
+<p>Abre esta página en la misma ventana donde usas el panel. Cada tarjeta dice qué pasó.</p>
+<div id="out"></div>
+<script src="../api-config.js"></script>
+<script src="../js/inline/ley-datos/debug-sources-1.js"></script>
+</body>
+</html>
