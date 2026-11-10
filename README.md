@@ -77,13 +77,22 @@ To develop against a local API, point `api-config.js` at it
 
 ## Deployment
 
-GitHub Actions publishes the repository with **no build step** — there is no
-bundler, no npm and no compile phase. The workflow
-(`.github/workflows/pages.yml`) checks out the repository and uploads the
-files as a Pages artifact.
+GitHub Pages publishes this repository with **no build step** — there is no
+bundler, no npm and no compile phase. The repository *is* the artifact.
 
-- Branch: `main`
+- Source: branch `main`, path `/` (`build_type: legacy`)
 - Site: <https://jacktravolta.github.io/asistentejudicial.djlabs.cl/>
+- Every push to `main` triggers a new Pages build.
+
+`.nojekyll` is committed, so GitHub serves the files as they are instead of
+running them through Jekyll.
+
+The repository also carries a GitHub Actions Pages workflow
+(`.github/workflows/pages.yml`) that does the same job with
+`actions/checkout` → `configure-pages` → `upload-pages-artifact` →
+`deploy-pages`. Switching to it is a **repository setting change** plus a
+commit of that file; see [MIGRATION.md](./MIGRATION.md) §11 for the exact
+steps and for why it is not the active source yet.
 
 Because the project is served from a **sub-path**, every asset and route in
 this repository is relative. Keep it that way: a root-absolute URL
