@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Demo — Sitio corporativo con chat embebible</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: #0f172a; background: #f8fafc; min-height: 100vh;
+    }
+    header {
+      background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #9333ea 100%);
+      color: #fff; padding: 64px 24px; text-align: center;
+    }
+    header h1 { font-size: 32px; margin-bottom: 12px; }
+    header p { font-size: 16px; opacity: .9; max-width: 640px; margin: 0 auto; }
+    main { max-width: 960px; margin: -28px auto 48px; padding: 0 16px; }
+    .card {
+      background: #fff; border: 1px solid #e2e8f0; border-radius: 16px;
+      padding: 24px; margin-bottom: 20px; box-shadow: 0 4px 14px rgba(15, 23, 42, .06);
+    }
+    .card h2 { font-size: 18px; margin-bottom: 10px; }
+    .card p, .card li { font-size: 14px; line-height: 1.7; color: #334155; }
+    .card ul { padding-left: 20px; margin-top: 8px; }
+    code, pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      background: #0f172a; color: #e2e8f0; border-radius: 8px;
+      font-size: 12px; line-height: 1.6;
+    }
+    pre { padding: 14px 16px; overflow-x: auto; white-space: pre; }
+    footer { text-align: center; font-size: 12px; color: #94a3b8; padding: 24px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Acme Legal Tech</h1>
+    <p>Sitio demo de una empresa cliente: aquí vive el chat corporativo embebible.
+       El visitante conversa anónimo; el RAG y los créditos son de la cuenta que
+       los parámetros del snippet definen.</p>
+  </header>
+
+  <main>
+    <div class="card">
+      <h2>Mira abajo a la izquierda</h2>
+      <p>La <strong>burbuja del chat</strong> es el widget embebible
+         (<code>/embed/corporate-chat.js</code>): aparece en cualquier sitio
+         con un solo <code>&lt;script&gt;</code>. Pregúntale por lo que esta
+         cuenta tiene capturado en su RAG (por ejemplo, el contenido de
+         Disney+ capturado desde el panel).</p>
+      <ul>
+        <li>El visitante nunca inicia sesión ni usa sus propios créditos.</li>
+        <li>La burbuja se oculta sola si la cuenta no puede pagar un turno.</li>
+        <li>Las respuestas citan las fuentes del RAG y muestran el costo.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>Así se instala en cualquier web</h2>
+      <pre>&lt;script src="https://api.djlabs.cl/embed/corporate-chat.js"
+        data-api-base="https://api.djlabs.cl"
+        data-heart="ley_datos_21719"
+        data-owner-id="6d6a5892-ca77-11f1-8f9d-48a4729fc720"
+        data-title="Asistente Acme"&gt;&lt;/script&gt;</pre>
+      <p>Los parámetros (<code>data-heart</code>, <code>data-owner-id</code>)
+         definen a qué cuenta se conecta: mismo widget, cualquier RAG.</p>
+    </div>
+  </main>
+
+  <footer>Demo del chat corporativo embebible — asistente-judicial</footer>
+
+  <!-- Chat corporativo embebible (burbuja abajo-izquierda). Anónimo para
+       el visitante; el RAG y el cobro son de la cuenta que los parámetros
+       del snippet definen, resueltos server-side. -->
+  <script src="../api-config.js"></script>
+  <script src="../embed/corporate-chat.js"
+          data-api-base="https://api.djlabs.cl"
+          data-heart="ley_datos_21719"
+          data-owner-id="6d6a5892-ca77-11f1-8f9d-48a4729fc720"
+          data-title="Asistente Acme"
+          data-welcome="Hola: soy el asistente de Acme. Pregúntame lo que necesites y te oriento."></script>
+  <div id="corp-usage-badge" style="max-width:640px;margin:6px auto 24px;text-align:right;font:12px/1.4 system-ui,sans-serif;color:#64748b;">
+    <span>Chat corporativo: midiendo consultas…</span>
+  </div>
+  <script>
+  (function () {
+    // Marcador de tokens: agrega las consultas corporativas (anónimas) que
+    // consumen el RAG de la cuenta del snippet. Solo visible en desarrollo.
+    var ownerId = (document.querySelector('script[data-owner-id]') || {}).getAttribute;
+    ownerId = ownerId ? document.querySelector('script[data-owner-id]').getAttribute('data-owner-id') : '';
+    var box = document.getElementById('corp-usage-badge');
+    function fmt(n) { return n >= 1000 ? (Math.round(n / 100) / 10) + 'k' : String(n); }
+    function load() {
+      fetch(window.__API_BASE__ + '/usage/summary?heart=ley_datos_21719', { credentials: 'include' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) {
+          if (!d || !d.data) { box.style.display = 'none'; return; }
+          var u = d.data && d.data.corporate ? d.data.corporate : null;
+          if (!u) { box.style.display = 'none'; return; }
+          box.firstElementChild.textContent = u.queries > 0
+            ? 'Consultas corporativas: ' + u.queries + ' · ' + fmt(u.total_tokens) + ' tokens (entrada ' + fmt(u.input_tokens) + ' + salida ' + fmt(u.output_tokens) + ')'
+            : 'Consultas corporativas: 0 · sin tokens usados aún';
+        })
+        .catch(function () { box.style.display = 'none'; });
+    }
+    load();
+    window.setInterval(load, 30000);
+  })();
+  </script>
+</body>
+</html>

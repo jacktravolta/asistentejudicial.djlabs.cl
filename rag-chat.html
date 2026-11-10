@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Test RAG — Chat independiente</title>
+<script src="./api-config.js"></script>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f1f5f9; color: #0f172a; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 16px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+  h1 { font-size: 18px; margin: 0; }
+  .who { font-size: 13px; color: #475569; }
+  .badge { background: #fff; border: 1px solid #cbd5e1; border-radius: 999px; padding: 4px 10px; font-size: 12px; }
+  .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; margin-bottom: 12px; }
+  #chat { height: 46vh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+  .msg { max-width: 85%; padding: 8px 12px; border-radius: 12px; font-size: 14px; white-space: pre-wrap; word-break: break-word; }
+  .msg.user { align-self: flex-end; background: #dbeafe; }
+  .msg.bot { align-self: flex-start; background: #f8fafc; border: 1px solid #e2e8f0; }
+  .msg .meta { margin-top: 6px; font-size: 11px; color: #64748b; }
+  .msg details { margin-top: 6px; font-size: 11px; }
+  .msg pre { white-space: pre-wrap; word-break: break-word; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 6px; margin: 4px 0 0; max-height: 260px; overflow: auto; }
+  .row { display: flex; gap: 8px; margin-top: 10px; }
+  textarea { flex: 1; resize: vertical; min-height: 44px; max-height: 140px; border: 1px solid #cbd5e1; border-radius: 10px; padding: 8px 10px; font: inherit; }
+  button { border: 1px solid #cbd5e1; background: #fff; border-radius: 10px; padding: 8px 14px; font: inherit; cursor: pointer; }
+  button.primary { background: #2563eb; border-color: #2563eb; color: #fff; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .attach { display: flex; gap: 8px; margin-top: 8px; }
+  .attach input[type=text] { flex: 1; border: 1px solid #cbd5e1; border-radius: 10px; padding: 8px 10px; font: inherit; }
+  .attach input[name=aname] { width: 180px; }
+  .hint { font-size: 12px; color: #64748b; margin: 6px 0 0; }
+  .err { background: #fee2e2; border: 1px solid #fca5a5; color: #991b1b; border-radius: 10px; padding: 8px 12px; font-size: 13px; margin-top: 8px; display: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>🧪 Test RAG — chat independiente</h1>
+      <div class="who" id="who">verificando sesión…</div>
+    </div>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <label style="font-size:12px;color:#475569;">Corazón
+        <select id="heart"
+          style="border:1px solid #cbd5e1;border-radius:8px;padding:4px 8px;font:inherit;background:#fff;">
+          <option value="default">judicial (default)</option>
+          <option value="cv">cv — asistente curricular</option>
+          <option value="chat-corporativo">chat-corporativo</option>
+        </select>
+      </label>
+      <span class="badge" id="conv">conversación nueva</span>
+      <button id="newConv">Nueva conversación</button>
+    </div>
+  </header>
+
+  <div class="card">
+    <div id="chat"></div>
+    <div class="err" id="err"></div>
+    <div class="row">
+      <textarea id="q" placeholder="Escribe tu pregunta… (Enter para enviar)"></textarea>
+      <button class="primary" id="send">Enviar</button>
+    </div>
+    <div class="attach">
+      <input type="text" name="aname" id="aname" placeholder="nombre.txt">
+      <input type="text" id="atext" placeholder="Pega aquí texto para adjuntarlo como pendiente (probar adjuntos + RAG)">
+      <button id="attach">Adjuntar</button>
+    </div>
+    <p class="hint">El adjunto queda PENDIENTE: se incluye una vez en tu próxima pregunta y luego se marca como procesado. Los prompts se ven porque fake mode hace echo del prompt completo.</p>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // The API origin comes from api-config.js (the front is static and
+  // served from another host).
+  var API = (typeof window.__API_BASE__ === 'string')
+    ? window.__API_BASE__.trim().replace(/\/+$/, '')
+    : '';
+  var conversationId = null;
+  var chat = document.getElementById('chat');
+  var q = document.getElementById('q');
+  var send = document.getElementById('send');
+  var errBox = document.getElementById('err');
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function showErr(msg) {
+    errBox.textContent = msg;
+    errBox.style.display = 'block';
+    setTimeout(function () { errBox.style.display = 'none'; }, 6000);
+  }
+  function addMsg(cls, text, extra) {
+    var box = el('div', 'msg ' + cls, text);
+    if (extra) box.append(extra);
+    chat.append(box);
+    chat.scrollTop = chat.scrollHeight;
+    return box;
+  }
+  function setConv(id) {
+    conversationId = id;
+    document.getElementById('conv').textContent = id ? 'conversación ' + id.slice(0, 8) + '…' : 'conversación nueva';
+  }
+
+  // Session + balance
+  fetch(API + '/auth/me', { credentials: 'include', headers: { Accept: 'application/json' } })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      var who = document.getElementById('who');
+      if (d && d.success && d.data && d.data.user) {
+        who.textContent = 'Sesión: ' + d.data.user.email + ' · saldo ' + d.data.balance + ' créditos';
+      } else {
+        who.innerHTML = 'Sin sesión. Inicia sesión en la app principal (mismo navegador) o pide un enlace mágico.';
+      }
+    })
+    .catch(function () { document.getElementById('who').textContent = 'Sin sesión (no se pudo verificar).'; });
+
+  function sendQuestion() {
+    var question = q.value.trim();
+    if (question === '' || send.disabled) return;
+    q.value = '';
+    send.disabled = true;
+    addMsg('user', question);
+
+    var body = { question: question };
+    var heart = document.getElementById('heart').value.trim();
+    if (heart !== '') body.heart = heart;
+    if (conversationId) body.conversation_id = conversationId;
+
+    fetch(API + '/chat/completions', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(body)
+    })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        if (!res.d || res.d.success === false) {
+          var e = (res.d && res.d.error) || {};
+          addMsg('bot', '⚠ ' + (e.message || 'Error del servidor'));
+          if (e.code) showErr(e.code + ': ' + (e.message || ''));
+          return;
+        }
+        var data = res.d.data || {};
+        if (data.conversation_id) setConv(data.conversation_id);
+
+        var box = el('div', 'msg bot');
+        box.append(el('span', null, data.answer || '(sin respuesta)'));
+
+        var meta = [];
+        var m = data.monitoring || {};
+        if (m.total_tokens) meta.push(m.total_tokens + ' tokens');
+        if (m.cost_clp !== undefined) meta.push('~' + m.cost_clp + ' CLP');
+        if (data.credits_charged !== undefined) meta.push(data.credits_charged + ' créditos cobrados');
+        var src = data.sources || [];
+        if (src.length) {
+          meta.push('fuentes: ' + src.map(function (s) {
+            return (s.title || s.source_id || '?') + ' (' + s.scope + ', ' + Number(s.score).toFixed(2) + ')';
+          }).join(' · '));
+        }
+        if (meta.length) box.append(el('div', 'meta', meta.join(' · ')));
+
+        var ps = data.prompt_sent;
+        if (ps && (ps.system || ps.user)) {
+          var det = el('details');
+          det.append(el('summary', null, '🔧 prompt enviado a la IA'));
+          var sys = el('div'); sys.append(el('b', null, 'SYSTEM:'));
+          var sysPre = el('pre', null, ps.system || '');
+          var usr = el('div'); usr.append(el('b', null, 'USER:'));
+          var usrPre = el('pre', null, ps.user || '');
+          det.append(sys, sysPre, usr, usrPre);
+          box.append(det);
+        }
+        chat.append(box);
+        chat.scrollTop = chat.scrollHeight;
+      })
+      .catch(function (e) { addMsg('bot', '⚠ Error de red: ' + e); })
+      .finally(function () { send.disabled = false; q.focus(); });
+  }
+
+  function attachText() {
+    var name = document.getElementById('aname').value.trim() || 'pegado.txt';
+    var text = document.getElementById('atext').value.trim();
+    if (text === '') { showErr('Pega texto para adjuntar.'); return; }
+    var form = new FormData();
+    form.append('text', text);
+    form.append('source_type', 'text');
+    var heart2 = document.getElementById('heart').value.trim();
+    if (heart2 !== '') form.append('heart', heart2);
+    form.append('original_filename', name);
+    fetch(API + '/documents/ingest', {
+      method: 'POST', credentials: 'include',
+      headers: { Accept: 'application/json' }, body: form
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d && d.success === false) { showErr((d.error && d.error.message) || 'Error al adjuntar'); return; }
+        document.getElementById('atext').value = '';
+        addMsg('bot', '📎 "' + name + '" guardado como adjunto pendiente. Tu próxima pregunta lo incluye.');
+      })
+      .catch(function (e) { showErr('Error de red: ' + e); });
+  }
+
+  send.addEventListener('click', sendQuestion);
+  q.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendQuestion(); }
+  });
+  document.getElementById('attach').addEventListener('click', attachText);
+  document.getElementById('newConv').addEventListener('click', function () {
+    setConv(null);
+    addMsg('bot', '— conversación nueva (los adjuntos pendientes siguen activos) —');
+  });
+  q.focus();
+})();
+</script>
+
+  <!-- Quill se carga bajo demanda desde chat-editor.js (CDN jsdelivr + SRI) -->
+  <script src="./js/chat-editor.js"></script>
+</body>
+</html>

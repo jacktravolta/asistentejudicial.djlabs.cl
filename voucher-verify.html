@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Validación de comprobantes</title>
+<meta name="robots" content="noindex, nofollow">
+<!-- CSP: nothing external, no frames, no object/embeds. Contracts this page
+     to (1) inline CSS/JS it ships with, (2) same-origin API calls only. -->
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; img-src data:; form-action 'none'; base-uri 'none'; frame-ancestors 'none'">
+<meta name="referrer" content="no-referrer">
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: #f1f5f9;
+    color: #0f172a;
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 24px 12px;
+  }
+  .wrap { width: 100%; max-width: 560px; }
+  .card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    overflow: hidden;
+  }
+  header {
+    background: #0e5c55;
+    color: #ecfdf5;
+    padding: 22px 24px;
+  }
+  header h1 { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: .2px; }
+  header p { margin: 6px 0 0; font-size: 13px; line-height: 1.5; color: #a7f3d0; }
+  main { padding: 20px 24px 24px; }
+  label { display: block; font-size: 13px; font-weight: 600; margin: 0 0 6px; color: #334155; }
+  input {
+    width: 100%;
+    padding: 11px 13px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    font-size: 14px;
+    color: #0f172a;
+    background: #f8fafc;
+  }
+  input:focus { outline: 2px solid #0e5c55; outline-offset: 0; border-color: #0e5c55; }
+  button {
+    margin-top: 10px;
+    width: 100%;
+    padding: 11px 14px;
+    border: 0;
+    border-radius: 10px;
+    background: #0e5c55;
+    color: #ecfdf5;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:disabled { opacity: .55; cursor: wait; }
+  .hint { font-size: 12px; color: #64748b; margin: 10px 0 0; line-height: 1.5; }
+  .result { margin-top: 18px; border-radius: 12px; padding: 16px 18px; line-height: 1.5; }
+  .r-ok { background: #ecfdf5; border-left: 4px solid #059669; color: #064e3b; }
+  .r-bad { background: #fef2f2; border-left: 4px solid #dc2626; color: #7f1d1d; }
+  .r-warn { background: #fffbeb; border-left: 4px solid #d97706; color: #92400e; }
+  .verdict { margin: 0 0 8px; font-size: 15px; font-weight: 700; }
+  .verdict .big { font-size: 22px; letter-spacing: .3px; display: block; margin-bottom: 2px; }
+  ul { margin: 0; padding-left: 18px; font-size: 13px; }
+  li { margin: 3px 0; }
+  .muted { color: #64748b; font-size: 12px; }
+  footer {
+    padding: 16px 24px;
+    border-top: 1px solid #e2e8f0;
+    font-size: 12px;
+    color: #64748b;
+    line-height: 1.5;
+  }
+</style>
+</head>
+<body>
+<script src="./api-config.js"></script>
+<div class="wrap">
+  <div class="card">
+    <header>
+      <h1>Validación de comprobantes</h1>
+      <p>Comprueba si el comprobante impreso en un PDF es <strong>válido</strong> o si fue <strong>modificado</strong>. Pega la URL de validación completa o solo el código.</p>
+    </header>
+    <main>
+      <label for="code">URL o código de validación</label>
+      <input id="code" type="text" autocomplete="off" spellcheck="false"
+             placeholder="https://…/voucher-verify.html?code=af39…  ·  o  32 caracteres hexadecimales">
+      <!-- Honeypot (UX-level anti-bot): hidden from humans, autofillers fill it. -->
+      <input id="hp" type="text" name="website" tabindex="-1" aria-hidden="true" autocomplete="off"
+             style="position:absolute;left:-9999px;height:0;width:0;opacity:0;" value="">
+      <button id="btn" type="button">Validar comprobante</button>
+      <p class="hint">El código aparece impreso en el PDF del comprobante (y en el correo de confirmación). No requiere cuenta ni datos personales.</p>
+
+      <div id="result" hidden></div>
+    </main>
+    <footer>
+      ¿Te da un resultado inesperado? Responde el correo donde recibiste el comprobante y lo revisamos contigo sin apuro. Esta página solo consulta al servidor que emitió el documento.
+    </footer>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+/*
+ The backend origin (single deploy knob, api-config.js). Same-origin by default.
+ */
+var API_ROOT = (typeof window.__API_BASE__ === 'string' ? window.__API_BASE__.trim().replace(/\/+$/, '') : '');
+
+  var CODE_RE = /[0-9a-f]{32}/i;
+  var btn = document.getElementById('btn');
+  var input = document.getElementById('code');
+  var box = document.getElementById('result');
+  var hp = document.getElementById('hp');
+
+  /* Client-side length guard: never POST-looking, but bound what we send. */
+  var MAX_LEN = 256;
+
+  function check(data, status) {
+    if (status === 429) {
+      resultCard(
+        '<p class="verdict"><span class="big">Demasiadas consultas</span></p>' +
+        '<p>Estamos protegiendo el servicio de consultas automatizadas. Espera unos minutos y vuelve a intentarlo.</p>',
+        'r-warn');
+      return;
+    }
+    if (status >= 500) {
+      resultCard('<p class="verdict"><span class="big">No pudimos verificar</span></p><p>Servidor temporalmente no disponible. Inténtalo en unos minutos.</p>', 'r-warn');
+      return;
+    }
+    var v = data && data.verification ? data.verification : null;
+
+    if (!v) {
+      resultCard('<p class="verdict"><span class="big">No pudimos verificar</span></p><p>El servidor no entregó una respuesta válida. Inténtalo en unos minutos.</p>', 'r-warn');
+      return;
+    }
+
+    if (v.valid === true) {
+      resultCard(
+        '<p class="verdict"><span class="big">✓ COMPROBANTE VÁLIDO</span></p>' +
+        '<p class="muted" style="margin:0 0 8px;">Los datos coinciden con su emisión original.</p>' +
+        '<ul>' +
+        '<li>' + esc(docLabel(v.document_type)) + (v.folio ? ' · Folio ' + esc(v.folio) : '') + '</li>' +
+        '<li>Monto pagado: <strong>' + esc(money(v.amount_clp)) + ' CLP</strong></li>' +
+        '<li>Créditos acreditados: <strong>' + esc(Number(v.credits || 0).toLocaleString('es-CL')) + '</strong></li>' +
+        '<li>Estado de la operación: <strong>' + esc(v.status || '') + '</strong></li>' +
+        '<li class="muted">Orden ' + esc(v.order_id || '') + ' · verificado ' + esc(new Date(v.checked_at).toLocaleString('es-CL')) + '</li>' +
+        '</ul>',
+        'r-ok');
+      return;
+    }
+
+    if (/ADULTERADO/i.test(String(v.reason || ''))) {
+      resultCard(
+        '<p class="verdict"><span class="big">✗ DOCUMENTO ADULTERADO</span></p>' +
+        '<p>' + esc(v.reason) + '</p>' +
+        '<p><strong>No aceptes este comprobante como prueba de pago.</strong> Si alguien te lo entregó, avísale: el documento no coincide con sus datos de emisión.</p>' +
+        '<p class="muted">Verificado ' + esc(new Date(v.checked_at || Date.now()).toLocaleString('es-CL')) + '</p>',
+        'r-bad');
+      return;
+    }
+
+    resultCard(
+      '<p class="verdict"><span class="big">Comprobante sin validez</span></p>' +
+      '<p>' + esc(v.reason || 'Código no válido.') + '</p>' +
+      '<p class="muted">Verificado ' + esc(new Date(v.checked_at || Date.now()).toLocaleString('es-CL')) + '</p>',
+      'r-bad');
+  }
+
+  /* Accepts the full verification URL ...?code=X or the bare code. */
+  function extract(raw) {
+    raw = String(raw || '').trim();
+    if (!raw) { return ''; }
+    var inUrl = null;
+    try {
+      inUrl = new URL(raw).searchParams.get('code');
+    } catch (_e) { /* not a URL: look for code= or a hex run */ }
+    if (inUrl) { return inUrl.trim(); }
+    var kv = raw.match(/[?&]code=([0-9a-f]{32})/i);
+    if (kv) { return kv[1]; }
+    var hex = raw.match(CODE_RE);
+    return hex ? hex[0] : '';
+  }
+
+  function resultCard(html, cls) {
+    box.hidden = false;
+    box.className = 'result ' + cls;
+    box.innerHTML = html;
+  }
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+    });
+  }
+
+  function docLabel(t) { return Number(t) === 33 ? 'Factura electrónica' : 'Boleta electrónica'; }
+
+  function money(n) { return '$' + Number(n || 0).toLocaleString('es-CL'); }
+
+  function verify(rawInput) {
+    /* Honeypot: a filled hidden field means a robot — stay silent. */
+    if (hp && hp.value !== '') {
+      resultCard('<p class="verdict muted">Verificando…</p>', 'r-warn');
+      return;
+    }
+
+    var code = extract(rawInput);
+    if (!code) {
+      resultCard('<p class="verdict"><span class="big">Código no encontrado</span></p><p>Revisa que la URL o el código estén completos (32 caracteres).</p>', 'r-warn');
+      return;
+    }
+    if (code.length > MAX_LEN) {
+      resultCard('<p class="verdict"><span class="big">Código demasiado largo</span></p>', 'r-warn');
+      return;
+    }
+
+    btn.disabled = true;
+    resultCard('<p class="verdict muted">Verificando…</p>', 'r-warn');
+
+    fetch(API_ROOT + '/payments/voucher/verify?code=' + encodeURIComponent(code))
+      .then(function (r) {
+        return r.json().then(function (payload) {
+          check(payload, r.status);
+        });
+      })
+      .catch(function () {
+        resultCard('<p class="verdict"><span class="big">No pudimos verificar</span></p><p>Sin conexión con el servidor. Inténtalo en unos minutos.</p>', 'r-warn');
+      })
+      .finally(function () { btn.disabled = false; });
+  }
+
+  btn.addEventListener('click', function () { verify(extract(input.value)); });
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { verify(extract(input.value)); }
+  });
+
+  /* The stamp carries the code IN the URL: process automatically. */
+  var urlCode = extract(window.location.href);
+  if (urlCode) {
+    input.value = urlCode;
+    verify(urlCode);
+  }
+})();
+</script>
+</body>
+</html>
