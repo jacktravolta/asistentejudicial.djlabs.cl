@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://api.djlabs.cl https://cdn.jsdelivr.net; worker-src 'self' blob: https://cdn.jsdelivr.net; frame-src https://www.youtube-nocookie.com https://player.vimeo.com; media-src 'self' data: blob: https:; manifest-src 'self'">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Demo — Sitio corporativo con chat embebible</title>
   <style>
@@ -83,30 +84,6 @@
   <div id="corp-usage-badge" style="max-width:640px;margin:6px auto 24px;text-align:right;font:12px/1.4 system-ui,sans-serif;color:#64748b;">
     <span>Chat corporativo: midiendo consultas…</span>
   </div>
-  <script>
-  (function () {
-    // Marcador de tokens: agrega las consultas corporativas (anónimas) que
-    // consumen el RAG de la cuenta del snippet. Solo visible en desarrollo.
-    var ownerId = (document.querySelector('script[data-owner-id]') || {}).getAttribute;
-    ownerId = ownerId ? document.querySelector('script[data-owner-id]').getAttribute('data-owner-id') : '';
-    var box = document.getElementById('corp-usage-badge');
-    function fmt(n) { return n >= 1000 ? (Math.round(n / 100) / 10) + 'k' : String(n); }
-    function load() {
-      fetch(window.__API_BASE__ + '/usage/summary?heart=ley_datos_21719', { credentials: 'include' })
-        .then(function (r) { return r.ok ? r.json() : null; })
-        .then(function (d) {
-          if (!d || !d.data) { box.style.display = 'none'; return; }
-          var u = d.data && d.data.corporate ? d.data.corporate : null;
-          if (!u) { box.style.display = 'none'; return; }
-          box.firstElementChild.textContent = u.queries > 0
-            ? 'Consultas corporativas: ' + u.queries + ' · ' + fmt(u.total_tokens) + ' tokens (entrada ' + fmt(u.input_tokens) + ' + salida ' + fmt(u.output_tokens) + ')'
-            : 'Consultas corporativas: 0 · sin tokens usados aún';
-        })
-        .catch(function () { box.style.display = 'none'; });
-    }
-    load();
-    window.setInterval(load, 30000);
-  })();
-  </script>
+  <script src="../js/inline/demo/index-1.js"></script>
 </body>
 </html>
