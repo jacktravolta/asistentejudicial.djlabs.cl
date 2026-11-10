@@ -16,6 +16,7 @@ let authMod = null;
 let avatarMod = null;
 let chatMounted = false;
 let chatWidget = null;
+let previousBalance = null;
 
 async function getAuth() {
   if (!authMod) {
@@ -319,8 +320,71 @@ function updateBalanceDisplays(balance) {
   if (typeof balance !== 'number') {
     return;
   }
-  setText('mobile-balance', balance + (balance === 1 ? ' crédito' : ' créditos'));
+
+  const formatted = balance.toLocaleString('es-CL');
+  const desktopValue = $id('app-balance-value');
+  const desktop = $id('app-balance');
+  const mobile = $id('mobile-balance');
+
+  const hadPrevious = previousBalance !== null;
+  const changed = hadPrevious && previousBalance !== balance;
+
+  // Efecto visual de cambio: pulso breve en el contenedor del saldo.
+  const pulse = (el) => {
+    if (!el) return;
+    el.classList.add('ring-2', 'ring-brand-500', 'scale-105', 'transition-all', 'duration-200');
+    setTimeout(() => {
+      el.classList.remove('ring-2', 'ring-brand-500', 'scale-105');
+    }, 600);
+  };
+
+  if (desktopValue) {
+    desktopValue.textContent = formatted;
+    if (changed) pulse(desktop);
+  }
+  if (mobile) {
+    mobile.textContent = formatted + (balance === 1 ? ' crédito' : ' créditos');
+    if (changed) pulse(mobile);
+  }
+
+  previousBalance = balance;
 }
+
+/**
+ * Refuerza el saldo desde el servidor (/auth/me) y lo pinta en el header.
+ * Se expone globalmente para que wallet, top-up y chat puedan disparar un
+ * refresco tras una transacción que cambie el saldo.
+ */
+async function refreshBalance() {
+  try {
+    const auth = await getAuth();
+    const session = await auth.fetchMe();
+    const balance = session && typeof session.balance === 'number' ? session.balance : null;
+    if (balance !== null) {
+      updateBalanceDisplays(balance);
+    }
+  } catch (e) {
+    // Silencioso: nunca queremos bloquear la UI por un fallo al leer el saldo.
+  }
+}
+
+// Refresco en tiempo real: cualquier módulo puede disparar
+// window.dispatchEvent(new CustomEvent('aj:balance-changed')) tras una
+// transacción y el header se actualiza solo.
+document.addEventListener('aj:balance-changed', () => {
+  void refreshBalance();
+});
+
+// Navegación entre paneles desde módulos (p. ej. "Comprar créditos" → billetera).
+document.addEventListener('aj:navigate', (event) => {
+  const panel = event && event.detail && event.detail.panel;
+  if (panel) {
+    showPanel(panel);
+  }
+});
+
+// Expuesto para consumo directo desde otros módulos.
+window.refreshBalance = refreshBalance;
 
 function populateSettings() {
   if (!currentUser) {
@@ -661,7 +725,7 @@ function showPanel(name) {
 
   ensurePanelMount(name);
 
-  for (const panel of ['documents', 'chat', 'wallet', 'settings', 'notifications', 'admin']) {
+  for (const panel of ['documents', 'chat', 'wallet', 'settings', 'notifications', 'admin', 'chat-legal', 'buscador-leyes', 'escritos', 'analizador', 'causas']) {
     const el = $id('panel-' + panel);
     if (el) {
       el.classList.toggle('hidden', panel !== name);
@@ -718,13 +782,86 @@ function showPanel(name) {
     populateSettings();
     initProfilePanel();
   }
+  if (name === 'chat-legal') {
+    import('./chat-legal.js?v=1')
+      .then((m) => {
+        if (m.initChatLegal) {
+          const container = $id('chat-legal');
+          if (container) {
+            m.initChatLegal(container);
+          }
+        }
+      })
+      .catch(() => {});
+  }
+  if (name === 'buscador-leyes') {
+    // La plantilla se llama tpl-bcn-laws (nombre del módulo) mientras el panel
+    // se monta como panel-buscador-leyes (nombre de la ruta), así que no
+    // encaja en ensurePanelMount() (tpl-${name}): se monta aquí mismo.
+    if (!$id('panel-buscador-leyes')) {
+      mountView('tpl-bcn-laws', 'panel-buscador-leyes', $id('panels'));
+    }
+    import('./bcn-laws.js?v=1')
+      .then((m) => {
+        if (m.initBcnLaws) {
+          const container = $id('buscador-leyes');
+          if (container) {
+            m.initBcnLaws(container);
+          }
+        }
+      })
+      .catch(() => {});
+  }
+  if (name === 'escritos') {
+    // La plantilla tpl-escritos se monta como panel-escritos (nombre de la
+    // ruta) dentro de ensurePanelMount(); aquí solo se inicializa el módulo.
+    import('./escritos.js?v=1')
+      .then((m) => {
+        if (m.initEscritos) {
+          const container = $id('escritos');
+          if (container) {
+            m.initEscritos(container);
+          }
+        }
+      })
+      .catch(() => {});
+  }
+  if (name === 'analizador') {
+    // La plantilla tpl-document-analyzer se monta como panel-analizador
+    // (nombre de la ruta) dentro de ensurePanelMount(); aquí solo se
+    // inicializa el módulo.
+    import('./document-analyzer.js?v=1')
+      .then((m) => {
+        if (m.initDocumentAnalyzer) {
+          const container = $id('analizador');
+          if (container) {
+            m.initDocumentAnalyzer(container);
+          }
+        }
+      })
+      .catch(() => {});
+  }
+  if (name === 'causas') {
+    // La plantilla tpl-case-tracking se monta como panel-causas (nombre de la
+    // ruta) dentro de ensurePanelMount(); aquí solo se inicializa el módulo.
+    import('./case-tracking.js?v=1')
+      .then((m) => {
+        if (m.initCaseTracking) {
+          const container = $id('causas');
+          if (container) {
+            m.initCaseTracking(container);
+          }
+        }
+      })
+      .catch(() => {});
+  }
 
   // Keep the URL in sync so the #/admin and #/wallet deep links stay
   // shareable. The panels are HASH routes: the front is served as static
   // files and a path-based route (/wallet) would 404 on a host without a
   // server rewrite — and the sibling stubs (wallet.html, chat.html, …)
   // already redirect to index.html#/wallet and friends.
-  const pathFor = { documents: '#/', wallet: '#/wallet', admin: '#/admin' };
+  const pathFor = { documents: '#/', wallet: '#/wallet', admin: '#/admin', 'chat-legal': '#/chat-legal', 'buscador-leyes': '#/buscador-leyes', 'escritos': '#/escritos', 'analizador': '#/analizador', causas: '#/causas' };
   if (pathFor[name] && window.history && window.history.replaceState) {
     const current = window.location.hash.replace(/^#/, '') || '/';
     const target = pathFor[name].replace(/^#/, '');
@@ -1167,6 +1304,16 @@ async function boot() {
       // Con sesión, la recarga vive en su propia billetera (packs,
       // comprobante y movimientos).
       showPanel('wallet');
+    } else if (path === '/chat-legal') {
+      showPanel('chat-legal');
+    } else if (path === '/buscador-leyes') {
+      showPanel('buscador-leyes');
+    } else if (path === '/escritos') {
+      showPanel('escritos');
+    } else if (path === '/analizador') {
+      showPanel('analizador');
+    } else if (path === '/causas') {
+      showPanel('causas');
     }
   } catch (e) {
     // No active session: the landing page is already visible (static HTML).

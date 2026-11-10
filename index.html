@@ -1354,6 +1354,11 @@
           <button type="button" class="nav-item rounded-full px-3.5 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-brand-50 hover:text-brand-700" data-panel="documents">Documentos</button>
           <button type="button" class="nav-item rounded-full px-3.5 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-brand-50 hover:text-brand-700" data-panel="wallet">Billetera</button>
           <button type="button" class="nav-item rounded-full px-3.5 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-brand-50 hover:text-brand-700" data-panel="settings">Perfil</button>
+          <button type="button" class="nav-item rounded-full px-3.5 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-brand-50 hover:text-brand-700" data-panel="chat-legal">Chat legal</button>
+          <button type="button" class="nav-item rounded-full px-3.5 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-brand-50 hover:text-brand-700" data-panel="buscador-leyes">Buscador de leyes</button>
+          <button type="button" class="nav-item rounded-full px-3.5 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-brand-50 hover:text-brand-700" data-panel="escritos">Escritos</button>
+          <button type="button" class="nav-item rounded-full px-3.5 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-brand-50 hover:text-brand-700" data-panel="analizador">Analizador</button>
+          <button type="button" class="nav-item rounded-full px-3.5 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-brand-50 hover:text-brand-700" data-panel="causas">Causas</button>
           <button type="button" id="nav-admin" class="nav-item hidden rounded-full px-3.5 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-brand-50 hover:text-brand-700" data-panel="admin">Admin</button>
         </nav>
         <div class="flex items-center gap-3">
@@ -1363,7 +1368,12 @@
             </svg>
             <span id="notifications-badge" class="hidden absolute -right-0.5 -top-0.5 min-w-[1.1rem] rounded-full bg-red-500 px-1 text-center text-[11px] font-bold leading-[1.1rem] text-white shadow" aria-hidden="true">0</span>
           </button>
-          <span id="mobile-balance" class="rounded-full border border-brand-100 bg-brand-50 px-3 py-1 text-sm font-medium text-brand-700">— créditos</span>
+          <span id="app-balance" class="hidden sm:inline-flex items-center gap-2 rounded-full border border-brand-100 bg-brand-50 px-3 py-1.5 text-sm font-medium text-brand-700">
+            <span class="font-semibold">Mis créditos</span>
+            <span id="app-balance-value">—</span>
+            <button type="button" id="app-creditos-historial" class="nav-item ml-2 text-xs text-brand-600 underline underline-offset-4 hover:text-brand-700" data-panel="wallet" title="Ver historial de movimientos">Historial</button>
+          </span>
+          <span id="mobile-balance" class="sm:hidden rounded-full border border-brand-100 bg-brand-50 px-3 py-1 text-sm font-medium text-brand-700">— créditos</span>
           <button type="button" id="logout-btn" class="rounded-lg px-3 py-1.5 text-sm text-slate-500 transition hover:bg-slate-100 hover:text-slate-700">Salir</button>
         </div>
       </div>
@@ -2487,6 +2497,115 @@
       Estás preguntando como invitado. Crea una cuenta para hacer más preguntas
       y guardar tu conversación.
     </p>
+  </template>
+
+  <template id="tpl-chat-legal">
+    <section class="mx-auto max-w-3xl px-4 py-6 sm:px-6">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div>
+          <h1 class="text-xl font-semibold text-slate-900">Chat legal</h1>
+          <p class="text-sm text-slate-500">
+            Consultas con asistencia de IA sobre materias civiles, penales,
+            laborales y más. Revisa siempre con un profesional.
+          </p>
+        </div>
+      </div>
+      <div id="chat-legal" class="h-[70vh] min-h-[520px]"></div>
+    </section>
+  </template>
+
+  <template id="tpl-bcn-laws">
+    <div id="buscador-leyes" class="flex flex-col gap-4 px-4 py-6 sm:px-6">
+      <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 class="text-base font-semibold text-slate-900">Buscador de leyes BCN</h2>
+        <p class="mt-1 text-sm text-slate-500">
+          Consulta una ley vigente de la Biblioteca del Congreso Nacional de Chile
+          por su número, su artículo o una palabra clave. La búsqueda es gratuita:
+          no consume créditos de tu billetera.
+        </p>
+      </div>
+
+      <form id="bcn-search-form" class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm flex flex-col sm:flex-row sm:items-end gap-3" novalidate>
+        <div class="flex flex-col gap-1 flex-1 min-w-0">
+          <label for="bcn-ley" class="text-xs font-medium text-slate-700">Nº de ley (prioridad)</label>
+          <input id="bcn-ley" type="text" placeholder="Ej: 21.719 o 21719"
+            class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-200">
+        </div>
+        <div class="flex flex-col gap-1 flex-1 min-w-0">
+          <label for="bcn-articulo" class="text-xs font-medium text-slate-700">Nº de artículo</label>
+          <input id="bcn-articulo" type="text" placeholder="Ej: 1° transitorio"
+            class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-200">
+        </div>
+        <div class="flex flex-col gap-1 flex-1 min-w-0 sm:max-w-xs">
+          <label for="bcn-q" class="text-xs font-medium text-slate-700">Palabra clave / tema</label>
+          <input id="bcn-q" type="search" placeholder="Ej: pensión de alimentos"
+            class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-200">
+        </div>
+        <div class="flex flex-col gap-1 shrink-0 sm:max-w-xs">
+          <label for="bcn-area" class="text-xs font-medium text-slate-700">Área de derecho</label>
+          <select id="bcn-area"
+            class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-200">
+            <option value="">Todas las áreas</option>
+          </select>
+        </div>
+        <button type="submit" id="bcn-submit" class="shrink-0 rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-60 disabled:cursor-not-allowed">
+          Buscar ley
+        </button>
+      </form>
+
+      <p id="bcn-error" class="hidden rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" role="alert"></p>
+      <p id="bcn-ok" class="hidden rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900" role="status"></p>
+
+      <div id="bcn-results" class="flex-1 min-h-0"></div>
+    </div>
+  </template>
+
+  <template id="tpl-escritos">
+    <section class="mx-auto max-w-3xl px-4 py-6 sm:px-6">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div>
+          <h1 class="text-xl font-semibold text-slate-900">Redactor de escritos</h1>
+          <p class="text-sm text-slate-500">Elige una plantilla, completa los campos y genera tu borrador. Cada escrito cuesta 5 créditos.</p>
+        </div>
+      </div>
+      <div id="escritos" class="flex flex-col gap-4 min-h-0">
+        <div id="escritos-list"></div>
+        <div id="escritos-form"></div>
+        <div id="escritos-output"></div>
+      </div>
+    </section>
+  </template>
+
+  <template id="tpl-case-tracking">
+    <section class="mx-auto max-w-3xl px-4 py-6 sm:px-6">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div>
+          <h1 class="text-xl font-semibold text-slate-900">Seguimiento de causas</h1>
+          <p class="text-sm text-slate-500">Registra y haz seguimiento a tus causas y plazos procesales.</p>
+        </div>
+      </div>
+      <div id="causas" class="flex flex-col gap-4 min-h-0"></div>
+    </section>
+  </template>
+
+  <template id="tpl-document-analyzer">
+    <section class="mx-auto max-w-3xl px-4 py-6 sm:px-6">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div>
+          <h1 class="text-xl font-semibold text-slate-900">Analizador de documentos</h1>
+          <p class="text-sm text-slate-500">
+            Sube un documento (PDF, Word o imagen) y te mostramos qué dice: partes,
+            tribunal, roles, fechas, plazos, pretensiones y argumentos. Cada análisis cuesta 4 créditos.
+          </p>
+        </div>
+      </div>
+      <div id="analizador" class="flex flex-col gap-4 min-h-0">
+        <div id="da-upload"></div>
+        <div id="da-results" class="hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm min-h-0"></div>
+        <p id="da-error" class="hidden rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" role="alert"></p>
+        <p id="da-ok" class="hidden rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900" role="status"></p>
+      </div>
+    </section>
   </template>
 
   <template id="tpl-terminos">

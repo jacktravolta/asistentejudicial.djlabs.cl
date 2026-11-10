@@ -13,7 +13,7 @@ import { apiUrl } from './api-base.js';
  * Performs a JSON GET and returns the `data` payload.
  *
  * @param {string} url
- * @param {{ fallbackMessage?: string }} [options]
+ * @param {{ fallbackMessage?: string, headers?: Record<string, string> }} [options]
  * @returns {Promise<object>}
  */
 export async function apiGet(url, options = {}) {
@@ -21,7 +21,7 @@ export async function apiGet(url, options = {}) {
 
   try {
     response = await fetch(apiUrl(url), {
-      headers: { Accept: 'application/json' },
+      headers: { Accept: 'application/json', ...options.headers },
       credentials: 'include',
     });
   } catch (networkError) {
