@@ -2,26 +2,18 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://api.djlabs.cl https://cdn.jsdelivr.net; worker-src 'self' blob: https://cdn.jsdelivr.net; frame-src https://www.youtube-nocookie.com https://player.vimeo.com; media-src 'self' data: blob: https:; manifest-src 'self'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Confirmar tu correo · Asistente Ley de Datos 21.719</title>
   <link rel="stylesheet" href="../css/tokens.css" />
   <script src="../api-config.js"></script>
-  <script>
-    // API(path): every backend endpoint. api-config.js points at the API
-    // origin, because this front is static and served from another host.
-    window.API = (function () {
-      var base = (typeof window.__API_BASE__ === 'string')
-        ? window.__API_BASE__.trim().replace(/\/+$/, '')
-        : '';
-      return function (path) { return base + path; };
-    })();
-  </script>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="../js/inline/ley-datos/verificar-1.js"></script>
   <style>
     .ld-modal-in { animation: ld-in .22s ease-out both; }
     @keyframes ld-in { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
     @media (prefers-reduced-motion: reduce) { .ld-modal-in { animation: none; } }
   </style>
+  <link rel="stylesheet" href="../css/tailwind.css">
 </head>
 <body class="min-h-screen bg-slate-50">
   <main class="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center px-4 py-12">
@@ -64,50 +56,6 @@
     </p>
   </main>
 
-  <script type="module">
-    const working = document.getElementById('state-working');
-    const okBox = document.getElementById('state-ok');
-    const errorBox = document.getElementById('state-error');
-
-    function show(box) {
-      working.hidden = true;
-      okBox.hidden = true;
-      errorBox.hidden = true;
-      box.hidden = false;
-    }
-
-    const params = new URLSearchParams(window.location.search);
-    const token = (params.get('token') || '').trim();
-
-    if (token === '') {
-      document.getElementById('error-message').textContent =
-        'El enlace llegó incompleto. Ábrelo directo desde el correo que te enviamos.';
-      show(errorBox);
-    } else {
-      try {
-        const res = await fetch(window.API('/auth/reverify'), {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token }),
-        });
-        const data = await res.json().catch(() => null);
-
-        if (res.ok && data?.success) {
-          document.getElementById('ok-email').textContent = data.data?.email || '';
-          show(okBox);
-        } else {
-          const err = data?.error;
-          document.getElementById('error-message').textContent =
-            (typeof err === 'string' ? err : err?.message) || 'El enlace ya fue usado o venció.';
-          show(errorBox);
-        }
-      } catch (_) {
-        document.getElementById('error-message').textContent =
-          'No pudimos confirmar ahora mismo. Revisa tu conexión e intenta abrir el enlace de nuevo.';
-        show(errorBox);
-      }
-    }
-  </script>
+  <script src="../js/inline/ley-datos/verificar-2.js" type="module"></script>
 </body>
 </html>

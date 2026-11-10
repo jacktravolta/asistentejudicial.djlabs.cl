@@ -2,26 +2,18 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://api.djlabs.cl https://cdn.jsdelivr.net; worker-src 'self' blob: https://cdn.jsdelivr.net; frame-src https://www.youtube-nocookie.com https://player.vimeo.com; media-src 'self' data: blob: https:; manifest-src 'self'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Tu contraseña · Asistente Ley de Datos 21.719</title>
   <link rel="stylesheet" href="../css/tokens.css" />
   <script src="../api-config.js"></script>
-  <script>
-    // API(path): every backend endpoint. api-config.js points at the API
-    // origin, because this front is static and served from another host.
-    window.API = (function () {
-      var base = (typeof window.__API_BASE__ === 'string')
-        ? window.__API_BASE__.trim().replace(/\/+$/, '')
-        : '';
-      return function (path) { return base + path; };
-    })();
-  </script>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="../js/inline/ley-datos/contrasena-1.js"></script>
   <style>
     .ld-page-in { animation: ld-in .22s ease-out both; }
     @keyframes ld-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
     @media (prefers-reduced-motion: reduce) { .ld-page-in { animation: none; } }
   </style>
+  <link rel="stylesheet" href="../css/tailwind.css">
 </head>
 <body class="min-h-screen bg-slate-50">
   <main class="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center px-4 py-12">
@@ -97,94 +89,6 @@
     </p>
   </main>
 
-  <script type="module">
-    const formState = document.getElementById('state-form');
-    const okBox = document.getElementById('state-ok');
-    const errorBox = document.getElementById('state-error');
-    const form = document.getElementById('form-password');
-    const errorLine = document.getElementById('pw-error');
-    const submitBtn = document.getElementById('pw-submit');
-
-    const params = new URLSearchParams(window.location.search);
-    const token = (params.get('token') || '').trim();
-    const heart = (params.get('heart') || '').trim();
-
-    function show(box) {
-      formState.hidden = true;
-      okBox.hidden = true;
-      errorBox.hidden = true;
-      box.hidden = false;
-    }
-
-    function showError(message) {
-      errorLine.textContent = message;
-      errorLine.hidden = false;
-    }
-
-    if (token === '') {
-      document.getElementById('error-message').textContent =
-        'El enlace llegó incompleto. Ábrelo directo desde el correo que te enviamos.';
-      show(errorBox);
-    } else {
-      document.getElementById('pw-new')?.focus();
-    }
-
-    form?.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      errorLine.hidden = true;
-
-      const password = document.getElementById('pw-new').value;
-      const confirm = document.getElementById('pw-confirm').value;
-
-      if (password.length < 8 || password.length > 72) {
-        showError('La contraseña debe tener entre 8 y 72 caracteres. Elige una que puedas recordar con calma.');
-        document.getElementById('pw-new').focus();
-        return;
-      }
-
-      if (password !== confirm) {
-        showError('Las contraseñas no coinciden. Revisa y escríbela de nuevo, sin problema.');
-        document.getElementById('pw-confirm').focus();
-        return;
-      }
-
-      submitBtn.disabled = true;
-      submitBtn.textContent = 'Guardando…';
-
-      try {
-        const res = await fetch(window.API('/auth/set-password'), {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token, password, heart }),
-        });
-        const data = await res.json().catch(() => null);
-
-        if (res.ok && data?.success) {
-          show(okBox);
-          return;
-        }
-
-        const err = data?.error;
-        const message = (typeof err === 'string' ? err : err?.message) || '';
-
-        // Invalid/used/expired token: the form cannot recover from it —
-        // offer a fresh link instead of a dead input.
-        if (res.status === 400 && message.toLowerCase().includes('enlace')) {
-          document.getElementById('error-message').textContent = message;
-          show(errorBox);
-          return;
-        }
-
-        showError(message || 'No pudimos guardar la contraseña ahora. Inténtalo de nuevo en un momento.');
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Guardar contraseña';
-      } catch (_) {
-        showError('No pudimos guardar la contraseña ahora mismo. Revisa tu conexión e inténtalo de nuevo.');
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Guardar contraseña';
-      }
-    });
-  </script>
+  <script src="../js/inline/ley-datos/contrasena-2.js" type="module"></script>
 </body>
 </html>

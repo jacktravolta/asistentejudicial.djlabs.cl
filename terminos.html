@@ -2,31 +2,16 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://api.djlabs.cl https://cdn.jsdelivr.net; worker-src 'self' blob: https://cdn.jsdelivr.net; frame-src https://www.youtube-nocookie.com https://player.vimeo.com; media-src 'self' data: blob: https:; manifest-src 'self'">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Términos y Condiciones — Asistente Jurídico Digital</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./css/tokens.css">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="./js/tailwind.config.js"></script>
-  <script>
-    // Apply the saved theme before first paint to avoid a flash.
-    (function () {
-      try {
-        var params = new URLSearchParams(window.location.search);
-        var tema = params.get('tema');
-        var skin = params.get('skin');
-        if (tema === 'dia' || tema === 'noche') localStorage.setItem('aj:tema', tema);
-        if (skin === 'teal' || skin === 'indigo') localStorage.setItem('aj:skin', skin);
-        var storedTema = localStorage.getItem('aj:tema') || 'dia';
-        var storedSkin = localStorage.getItem('aj:skin') || 'teal';
-        document.documentElement.setAttribute('data-tema', storedTema);
-        document.documentElement.setAttribute('data-skin', storedSkin);
-      } catch (error) {}
-    })();
-  </script>
+  <script src="js/inline/terminos-1.js"></script>
   <script type="module" src="./js/theme.js"></script>
+  <link rel="stylesheet" href="css/tailwind.css">
 </head>
 <body class="min-h-screen bg-slate-50 text-slate-800">
   <a href="#contenido" class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-brand-700 focus:shadow-lg">
