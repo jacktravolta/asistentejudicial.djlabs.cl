@@ -683,7 +683,7 @@ function showPanel(name) {
     ensureChat();
   }
   if (name === 'documents') {
-    import('./documents-library.js?v=2').then((m) => {
+    import('./documents-library.js?v=3').then((m) => {
       if (m.initDocumentsLibrary) {
         m.initDocumentsLibrary();
       }
