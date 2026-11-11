@@ -124,8 +124,22 @@ un panel lleno de botones 404.
 - [x] **T5** — `js/documents.js`: evento tras ingesta exitosa → la lista se refresca.
       *Evidencia:* `documents:ingested` se emite tras guardar y la biblioteca lo escucha;
       verificado con `node --check js/documents.js`.
-- [ ] **T6** — Verificación local: `node --check` + arnés CDP (lista, acciones, un solo
-      chat montado).
+- [x] **T6** — Verificación local: `node --check` + arnés CDP (lista, acciones, un solo
+      chat montado). *Evidencia:* `tests/cdp_panel_test.mjs` (arnés CDP autocontenido, Node
+      22, sin dependencias) — **29 aserciones, 29 pasan, 0 fallan** contra
+      `http://127.0.0.1:8002` con la API real en `https://api.djlabs.cl`: nav con Documentos
+      y Consultas, panel inicial = Consultas, **un solo** `.chat-widget` dentro de
+      `#chat-consultas` tras 3 ciclos de navegación, `/chat/completions` con
+      `heart="default"` y respuesta real del asistente, estado vacío de la biblioteca,
+      carga de un TXT → vista previa → confirmar → fila en la lista **sin recargar**,
+      "Ver texto", toggle de uso en el chat, y "Eliminar" (dismiss conserva la fila y no
+      llama `DELETE`; aceptar la borra y vuelve el estado vacío). Sin errores de consola de
+      la aplicación.
+      Dos arreglos al arnés que hicieron falta: registrar una cuenta QA nueva por corrida
+      (la cuenta fija cruza el umbral de re-verificación y el API la cierra con 403
+      `EMAIL_REVERIFY_REQUIRED`) y limpiar las cookies del navegador (`Network
+      .clearBrowserCookies`), porque la sesión httpOnly de una corrida anterior se
+      heredaba y las comprobaciones medían la cuenta equivocada.
 - [ ] **T7** — Commit + push a `main` + verificación en `https://asisjud.djlabs.cl`.
 - [x] **T8** — El chat nombra el heart: resolver el heart de la instalación y enviarlo en el
       chat, la biblioteca y la ingesta. *Evidencia:* `js/heart.js` resuelve el heart

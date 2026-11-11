@@ -14,7 +14,8 @@
 //
 //   --url <base>       front a probar (default http://127.0.0.1:8002)
 //   --cdp <puerto>     puerto de Chrome con CDP (default 9222)
-//   --email <correo>   cuenta QA (default qa.panel2@djlabs.cl)
+//   --email <correo>   cuenta QA existente; sin este argumento el arnés
+//                      REGISTRA una cuenta QA nueva en cada corrida
 //   --password <clave> contraseña QA
 //   --keep-open        no cierra la pestaña al terminar
 //   --skip-chat        omite el envío (solo para depurar el arnés)
@@ -39,7 +40,11 @@ function opcion(nombre, porDefecto) {
 const URL_BASE = String(opcion('url', 'http://127.0.0.1:8002')).replace(/\/+$/, '');
 const API_ESPERADA = 'https://api.djlabs.cl';
 const PUERTO_CDP = Number(opcion('cdp', 9222));
-const EMAIL = String(opcion('email', 'qa.panel2@djlabs.cl'));
+const EMAIL_ARG = opcion('email', '');
+// Sin --email el arnés registra una cuenta QA nueva en cada corrida. La cuenta
+// fija se bloquea (EMAIL_REVERIFY_REQUIRED) al cruzar el umbral de uso, y un
+// arnés repetible necesita una cuenta con saldo para probar el chat.
+const EMAIL = EMAIL_ARG ? String(EMAIL_ARG) : `qa.panel.${Date.now().toString(36)}@djlabs.cl`;
 const PASSWORD = String(opcion('password', 'Panel-QA-2026!x'));
 const KEEP_OPEN = argv.includes('--keep-open');
 const SKIP_CHAT = argv.includes('--skip-chat');
@@ -243,6 +248,11 @@ async function conectar() {
   await cliente.enviar('DOM.enable');
   await cliente.enviar('Log.enable').catch(() => {});
 
+  // La sesión de la API viaja en una cookie httpOnly. Sin limpiarla, el
+  // arnés hereda la sesión de una corrida anterior (o de otra cuenta) y las
+  // comprobaciones miden la cuenta equivocada.
+  await cliente.enviar('Network.clearBrowserCookies').catch(() => {});
+
   await cliente.enviar('Emulation.setDeviceMetricsOverride', {
     width: 1440,
     height: 1000,
@@ -388,8 +398,41 @@ function check(condicion, etiqueta, extra = '') {
 
 // ----- Comprobaciones --------------------------------------------------------
 
+// Registra una cuenta QA nueva contra la API pública. Devuelve true si la
+// cuenta quedó lista para el login del formulario.
+async function registrarCuentaQA() {
+  if (EMAIL_ARG) return true;
+  try {
+    const response = await fetch(`${API_ESPERADA}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        name: 'QA Panel',
+        email: EMAIL,
+        password: PASSWORD,
+        terms_accepted: true,
+      }),
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok || !payload || payload.success !== true) {
+      const motivo = payload && payload.error && payload.error.message
+        ? payload.error.message
+        : `HTTP ${response.status}`;
+      check(false, 'la cuenta QA de prueba queda registrada', motivo);
+      return false;
+    }
+    check(true, 'la cuenta QA de prueba queda registrada', EMAIL);
+    return true;
+  } catch (error) {
+    check(false, 'la cuenta QA de prueba queda registrada', error.message);
+    return false;
+  }
+}
+
 async function iniciarSesion(cliente) {
   abrir('Autenticación real');
+
+  if (!(await registrarCuentaQA())) return false;
 
   const estructura = await cliente.evaluar(`
     return {
