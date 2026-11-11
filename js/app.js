@@ -662,7 +662,7 @@ function showPanel(name) {
 
   ensurePanelMount(name);
 
-  for (const panel of ['documents', 'chat', 'wallet', 'settings', 'notifications', 'admin']) {
+  for (const panel of ['documents', 'chat', 'conversations', 'wallet', 'settings', 'notifications', 'admin']) {
     const el = $id('panel-' + panel);
     if (el) {
       el.classList.toggle('hidden', panel !== name);
@@ -692,6 +692,18 @@ function showPanel(name) {
       }
     }).catch((error) => {
       console.error('[App] Failed to load documents library:', error);
+    });
+  }
+  if (name === 'conversations') {
+    import('./conversations-library.js?v=1').then((m) => {
+      if (m.initConversationsLibrary) {
+        m.initConversationsLibrary();
+      }
+      if (m.refreshConversationsLibrary) {
+        m.refreshConversationsLibrary();
+      }
+    }).catch((error) => {
+      console.error('[App] Failed to load conversations library:', error);
     });
   }
   if (name === 'wallet') {
@@ -736,7 +748,13 @@ function showPanel(name) {
   // files and a path-based route (/wallet) would 404 on a host without a
   // server rewrite — and the sibling stubs (wallet.html, chat.html, …)
   // already redirect to index.html#/wallet and friends.
-  const pathFor = { documents: '#/documentos', chat: '#/chat', wallet: '#/wallet', admin: '#/admin' };
+  const pathFor = {
+    documents: '#/documentos',
+    chat: '#/chat',
+    conversations: '#/conversaciones',
+    wallet: '#/wallet',
+    admin: '#/admin',
+  };
   if (pathFor[name] && window.history && window.history.replaceState) {
     const current = window.location.hash.replace(/^#/, '') || '/';
     const target = pathFor[name].replace(/^#/, '');
@@ -764,7 +782,7 @@ function ensureChat() {
   // The API refuses to guess the heart: without it the chat is rejected with
   // HEART_REQUIRED. Resolve it here so the widget sends it on the question,
   // the quote/charge and its own attachment ingest.
-  Promise.all([import('./chat-widget.js?v=8'), resolveHeart()])
+  Promise.all([import('./chat-widget.js?v=9'), resolveHeart()])
     .then(([m, heart]) => {
       container.replaceChildren();
       chatWidget = m.mountChat(container, {
@@ -1335,6 +1353,8 @@ async function boot() {
       showPanel('chat');
     } else if (path === '/documentos') {
       showPanel('documents');
+    } else if (path === '/conversaciones') {
+      showPanel('conversations');
     } else if (path === '/wallet') {
       showPanel('wallet');
     } else if (path === '/recargas') {
@@ -1368,4 +1388,16 @@ async function boot() {
 }
 
 document.addEventListener('show-auth', showLanding);
+
+// Other modules (the conversations library) need to take the person to a
+// panel without importing this file: the nav buttons call showPanel()
+// directly and the app has no hashchange listener, so the request travels
+// as a CustomEvent instead.
+document.addEventListener('panel:navigate', (event) => {
+  const target = event && event.detail ? String(event.detail.panel || '') : '';
+  if (target) {
+    showPanel(target);
+  }
+});
+
 boot();

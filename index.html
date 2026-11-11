@@ -1316,6 +1316,7 @@
           <button type="button" class="nav-item rounded-full px-3.5 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-brand-50 hover:text-brand-700" data-panel="home">Inicio</button>
           <button type="button" class="nav-item rounded-full px-3.5 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-brand-50 hover:text-brand-700" data-panel="documents">Documentos</button>
           <button type="button" class="nav-item rounded-full px-3.5 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-brand-50 hover:text-brand-700" data-panel="chat">Consultas</button>
+          <button type="button" class="nav-item rounded-full px-3.5 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-brand-50 hover:text-brand-700" data-panel="conversations">Conversaciones</button>
           <button type="button" class="nav-item rounded-full px-3.5 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-brand-50 hover:text-brand-700" data-panel="wallet">Billetera</button>
           <button type="button" class="nav-item rounded-full px-3.5 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-brand-50 hover:text-brand-700" data-panel="settings">Perfil</button>
           <button type="button" id="nav-admin" class="nav-item hidden rounded-full px-3.5 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-brand-50 hover:text-brand-700" data-panel="admin">Admin</button>
@@ -1420,6 +1421,14 @@
       </header>
       <div id="chat-consultas" class="h-[70vh] min-h-[520px]"></div>
     </div><!-- /#panel-chat -->
+
+    <div id="panel-conversations" class="mx-auto max-w-6xl px-4 py-6 sm:px-6">
+      <header class="mb-4 space-y-1">
+        <h1 class="text-2xl font-semibold text-slate-900 sm:text-3xl">Mis conversaciones</h1>
+        <p class="text-sm text-slate-600">Revisa tus consultas anteriores, léelas y continúa en el chat donde las dejaste.</p>
+      </header>
+      <div id="conversations-list" class="space-y-3" aria-live="polite"></div>
+    </div><!-- /#panel-conversations -->
 
     <div id="panels"></div>
   </template>
@@ -2662,6 +2671,6 @@
 
 </template>
 
-  <script type="module" src="./js/app.js?v=10"></script>
+  <script type="module" src="./js/app.js?v=11"></script>
 </body>
 </html>

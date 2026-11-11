@@ -51,6 +51,10 @@ const SKIP_CHAT = argv.includes('--skip-chat');
 const SKIP_UPLOAD = argv.includes('--skip-upload');
 const DIR_SHOTS = opcion('shots', '');
 
+// The heart the chat used in this run. The conversations API asks for the same
+// heart, so the harness reads the list with the very same installation.
+let HEART_CHAT = '';
+
 if (DIR_SHOTS) mkdirSync(DIR_SHOTS, { recursive: true });
 
 const dormir = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -573,6 +577,9 @@ async function enviarUnaConsulta(cliente) {
     'el cuerpo de /chat/completions incluye un heart no vacío',
     `heart=${JSON.stringify(cuerpo.heart)}`,
   );
+  if (typeof cuerpo.heart === 'string' && cuerpo.heart.trim() !== '') {
+    HEART_CHAT = cuerpo.heart.trim();
+  }
   check(
     typeof cuerpo.question === 'string' && cuerpo.question.trim() !== '',
     'el cuerpo de /chat/completions incluye la pregunta',
@@ -610,6 +617,160 @@ async function enviarUnaConsulta(cliente) {
   }
   check(true, 'aparece una burbuja del asistente con respuesta no vacía', `${respuestaUI.visibleText.slice(0, 120)}`);
   await captura(cliente, 'consultas-chat');
+}
+
+async function comprobarConversaciones(cliente) {
+  abrir('Mis conversaciones');
+
+  const nav = await cliente.evaluar(`
+    const botones = [...document.querySelectorAll('[data-panel="conversations"]')];
+    return {
+      count: botones.length,
+      label: (botones[0]?.textContent || '').trim(),
+    };
+  `);
+  check(nav.count === 1, 'la navegación autenticada expone Conversaciones', `data-panel="conversations" x${nav.count}`);
+  check(nav.label === 'Conversaciones', 'la sección se llama "Conversaciones"', nav.label);
+
+  // Un front que todavía no tiene la sección no debe abortar el resto del
+  // arnés: se informa del fallo y se sigue con las demás comprobaciones.
+  if (!nav.count) {
+    return;
+  }
+
+  await clic(cliente, '[data-panel="conversations"]');
+  await dormir(400);
+
+  let fila = null;
+  try {
+    fila = await cliente.esperar(
+      `(() => {
+        const row = document.querySelector('#conversations-list article');
+        if (!row) return null;
+        const title = (row.querySelector('h2')?.textContent || '').trim();
+        const id = row.dataset.conversationId || '';
+        return title && id ? { title, id } : null;
+      })()`,
+      { timeout: 30000, etiqueta: 'la lista muestra una fila de conversación' },
+    );
+  } catch (error) {
+    const observed = await cliente.evaluar(`
+      const list = document.querySelector('#conversations-list');
+      return list ? (list.textContent || '').trim().slice(0, 300) : 'sin lista';
+    `);
+    check(false, 'la lista de conversaciones muestra al menos una fila', observed);
+    return;
+  }
+  check(true, 'la lista de conversaciones muestra al menos una fila', fila.title);
+
+  // La fila debe traer el título y el conteo que devuelve la API, no texto
+  // inventado por el front.
+  const comparacion = await cliente.evaluar(`
+    const base = (typeof window.__API_BASE__ === 'string' ? window.__API_BASE__ : '') || '';
+    const heart = ${JSON.stringify(HEART_CHAT || 'default')};
+    const row = document.querySelector('#conversations-list article');
+    if (!row) return { error: 'sin fila' };
+
+    const response = await fetch(base + '/conversations?heart=' + encodeURIComponent(heart) + '&limit=20', {
+      headers: { Accept: 'application/json' },
+      credentials: 'include',
+    });
+    const payload = await response.json().catch(() => null);
+    const data = payload && payload.data ? payload.data : {};
+    const list = Array.isArray(data.conversations) ? data.conversations : [];
+    const first = list[0] || null;
+
+    const rowId = row.dataset.conversationId || '';
+    const rowTitle = (row.querySelector('h2')?.textContent || '').trim();
+    const rowText = (row.textContent || '').trim();
+    const expectedTitle = first ? (String(first.title || '').trim() || 'Conversación sin título') : '';
+    const expectedCount = first
+      ? new Intl.NumberFormat('es-CL').format(Number(first.message_count) || 0) + ' mensajes'
+      : '';
+
+    return {
+      status: response.status,
+      total: list.length,
+      apiId: first ? String(first.id || '') : '',
+      apiTitle: first ? String(first.title || '') : '',
+      rowId,
+      rowTitle,
+      expectedTitle,
+      expectedCount,
+      idMatches: first ? rowId === String(first.id || '') : false,
+      titleMatches: expectedTitle ? rowTitle === expectedTitle : false,
+      countMatches: expectedCount ? rowText.includes(expectedCount) : false,
+      meta: (row.querySelector('p')?.textContent || '').trim(),
+    };
+  `);
+
+  check(
+    comparacion.status === 200 && comparacion.total >= 1,
+    'la API lista las conversaciones de la cuenta autenticada',
+    `HTTP ${comparacion.status}, total=${comparacion.total}`,
+  );
+  check(comparacion.idMatches, 'la fila corresponde a la conversación que devuelve la API', `fila=${comparacion.rowId}, api=${comparacion.apiId}`);
+  check(comparacion.titleMatches, 'la fila muestra el título real de la conversación', `fila=${comparacion.rowTitle}`);
+  check(comparacion.countMatches, 'la fila muestra el conteo de mensajes', `fila=${comparacion.meta}`);
+
+  try {
+    await clicPorTexto(cliente, 'Ver conversación', '#conversations-list article');
+  } catch (error) {
+    check(false, '"Ver conversación" expande la fila con la transcripción', error.message);
+    return;
+  }
+  const transcripcion = await cliente.esperar(
+    `(() => {
+      const row = document.querySelector('#conversations-list article');
+      const panel = row?.querySelector('[data-transcript]');
+      if (!panel || panel.classList.contains('hidden')) return null;
+      const text = (panel.textContent || '').trim();
+      if (!text || text.includes('Cargando la conversación')) return null;
+      return {
+        text,
+        user: [...panel.querySelectorAll('[data-role="user"]')].map((n) => (n.textContent || '').trim()),
+        assistant: [...panel.querySelectorAll('[data-role="assistant"]')].map((n) => (n.textContent || '').trim()),
+      };
+    })()`,
+    { timeout: 30000, etiqueta: 'la transcripción se muestra dentro de la fila' },
+  ).catch(() => null);
+
+  check(!!transcripcion, '"Ver conversación" expande la fila con la transcripción', transcripcion ? transcripcion.text.slice(0, 120) : 'no apareció la transcripción');
+
+  if (transcripcion) {
+    const usuario = transcripcion.user.join(' ');
+    const asistente = transcripcion.assistant.join(' ');
+    check(usuario.includes('frase de prueba'), 'la transcripción muestra la pregunta del usuario', usuario.slice(0, 140));
+    check(asistente.trim().length > 0, 'la transcripción muestra la respuesta del asistente', asistente.slice(0, 140));
+  }
+
+  const idAbierto = await cliente.evaluar(`
+    return document.querySelector('#conversations-list article')?.dataset.conversationId || '';
+  `);
+  try {
+    await clicPorTexto(cliente, 'Abrir en el chat', '#conversations-list article');
+  } catch (error) {
+    check(false, '"Abrir en el chat" lleva al panel Consultas', error.message);
+    return;
+  }
+  await dormir(600);
+
+  const destino = await cliente.evaluar(`
+    const chat = document.querySelector('#panel-chat');
+    const conv = document.querySelector('#panel-conversations');
+    let stored = '';
+    try { stored = sessionStorage.getItem('chat_conversation_id') || ''; } catch (_) { stored = ''; }
+    return {
+      chatVisible: !!(chat && !chat.classList.contains('hidden') && chat.getClientRects().length),
+      convHidden: !!(conv && (conv.classList.contains('hidden') || !conv.getClientRects().length)),
+      widgetId: window.chatWidget ? window.chatWidget.conversationId : null,
+      stored,
+    };
+  `);
+
+  check(destino.chatVisible && destino.convHidden, '"Abrir en el chat" lleva al panel Consultas', JSON.stringify(destino));
+  check(destino.widgetId === idAbierto, 'el chat continúa la conversación abierta', `widget=${destino.widgetId}, fila=${idAbierto}`);
+  check(destino.stored === idAbierto, 'la conversación abierta queda guardada para la pestaña', `sessionStorage=${destino.stored}, fila=${idAbierto}`);
 }
 
 async function comprobarDocumentos(cliente) {
@@ -889,6 +1050,7 @@ try {
 
     await comprobarNavegacion(cliente);
     if (!SKIP_CHAT) await enviarUnaConsulta(cliente);
+    if (!SKIP_CHAT) await comprobarConversaciones(cliente);
     await comprobarDocumentos(cliente);
   }
 

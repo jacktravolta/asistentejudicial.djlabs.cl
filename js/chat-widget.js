@@ -23,6 +23,41 @@ import { avatarNode, botAvatarNode } from './avatar.js';
 import { playChime, soundsEnabled } from './sounds.js?v=2';
 import { typewrite } from './chat-typewriter.js?v=2';
 
+// The conversation id lives in sessionStorage (per TAB, not per origin): in
+// memory it was lost on every reload, so the next message started a brand new
+// conversation and the context from zero. sessionStorage is not shared between
+// tabs, so two windows with different hearts do not overwrite each other.
+//
+// The key lives at module scope because other modules (the conversations
+// library) must point the chat at an existing conversation BEFORE the widget
+// mounts: the widget is imported asynchronously and would otherwise drop the
+// id on the floor.
+const CONV_STORAGE_KEY = 'chat_conversation_id';
+
+// Fallback for browsers where sessionStorage is blocked (private mode,
+// disabled cookies): the id survives in memory for the current page only.
+let memoryConversationId = null;
+
+/**
+ * Points the chat at an existing conversation.
+ *
+ * The id lives in sessionStorage (per tab), so the widget picks it up when
+ * it mounts and an already-mounted widget can continue it right away.
+ *
+ * @param {string|null} id
+ */
+export function useConversation(id) {
+  const value = id ? String(id) : '';
+  memoryConversationId = value || null;
+
+  try {
+    if (value) { sessionStorage.setItem(CONV_STORAGE_KEY, value); }
+    else { sessionStorage.removeItem(CONV_STORAGE_KEY); }
+  } catch (_) {
+    // Storage blocked: keep the id in memory only.
+  }
+}
+
 /**
  * @param {string} tag
  * @param {Record<string, string>} attrs
@@ -233,24 +268,25 @@ export function mountChat(container, options = {}) {
   // that pass no getter (guest pages) render plain rows, as before.
   const getUser = typeof options.getUser === 'function' ? options.getUser : null;
 
-  // El conversationId vive en sessionStorage (por PESTAÑA, no por origin):
-  // en memoria se perdía con cualquier recarga y el siguiente mensaje arrancaba
-  // una conversación nueva, cobrando contexto de cero. Se veía como "lo anterior
-  // se pierde". sessionStorage no se comparte entre pestañas, así que dos
-  // ventanas con hearts distintos no se pisan.
-  const CONV_STORAGE_KEY = 'chat_conversation_id';
-
+  // The conversation id lives in sessionStorage (per TAB, not per origin):
+  // in memory it was lost with any reload and the next message started a
+  // brand new conversation, charging context from zero. It looked like
+  // "everything before is lost". sessionStorage is not shared between tabs,
+  // so two windows with different hearts do not overwrite each other.
+  // The key itself is declared at module scope: see useConversation().
   function storedConversationId() {
     try {
-      return sessionStorage.getItem(CONV_STORAGE_KEY) || null;
+      return sessionStorage.getItem(CONV_STORAGE_KEY) || memoryConversationId;
     } catch (_) {
-      return null; // storage bloqueado: degradar a solo memoria
+      return memoryConversationId; // storage blocked: degrade to memory only
     }
   }
 
   function storeConversationId(id) {
+    const value = id ? String(id) : '';
+    memoryConversationId = value || null;
     try {
-      if (id) { sessionStorage.setItem(CONV_STORAGE_KEY, id); }
+      if (value) { sessionStorage.setItem(CONV_STORAGE_KEY, value); }
       else { sessionStorage.removeItem(CONV_STORAGE_KEY); }
     } catch (_) { /* no crítico */ }
   }
