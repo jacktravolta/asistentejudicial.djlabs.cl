@@ -252,6 +252,12 @@ async function conectar() {
   await cliente.enviar('DOM.enable');
   await cliente.enviar('Log.enable').catch(() => {});
 
+  // El arnés debe medir el código que está en disco, no el que Chrome
+  // guardó en una corrida anterior: sin esto, un index.html o un módulo
+  // cacheado esconde los cambios recién escritos y la prueba pasa por una
+  // versión que ya no existe.
+  await cliente.enviar('Network.setCacheDisabled', { cacheDisabled: true }).catch(() => {});
+
   // La sesión de la API viaja en una cookie httpOnly. Sin limpiarla, el
   // arnés hereda la sesión de una corrida anterior (o de otra cuenta) y las
   // comprobaciones miden la cuenta equivocada.
@@ -1006,6 +1012,316 @@ async function comprobarLeyes(cliente) {
   await captura(cliente, 'leyes-buscador');
 }
 
+// Gestiona la libreta de clientes: la crea con el formulario real, la edita
+// y la elimina, y comprueba que la sección es gratis (no pide costo, no
+// toca la billetera y no mueve el saldo).
+async function comprobarClientes(cliente) {
+  abrir('Mis clientes');
+
+  const nav = await cliente.evaluar(`
+    const botones = [...document.querySelectorAll('[data-panel="clients"]')];
+    return {
+      count: botones.length,
+      label: (botones[0]?.textContent || '').trim(),
+    };
+  `);
+  check(nav.count === 1, 'la navegación autenticada expone Clientes', `data-panel="clients" x${nav.count}`);
+  check(nav.label === 'Clientes', 'la sección se llama "Clientes"', nav.label);
+
+  // Un front que todavía no tiene la sección no debe abortar el resto del
+  // arnés: se informa del fallo y se sigue con las demás comprobaciones.
+  if (!nav.count) {
+    return;
+  }
+
+  // Las peticiones de esta ventana son las de la sección de clientes: así
+  // se puede afirmar que no toca la billetera ni los créditos.
+  const peticionesAntes = cliente.peticiones.length;
+
+  await clic(cliente, '[data-panel="clients"]');
+  await dormir(400);
+
+  // El saldo se lee DESPUÉS de entrar al panel: así cualquier refresco de la
+  // sesión que el chat deja en vuelo ya terminó y la comparación mide sólo
+  // el efecto de la sección de clientes.
+  const saldoAntes = await cliente.evaluar(`
+    return (document.querySelector('#mobile-balance')?.textContent || '').trim();
+  `);
+
+  const seccion = await cliente.evaluar(`
+    const panel = document.querySelector('#panel-clients');
+    const copy = (document.querySelector('#panel-clients header p')?.textContent || '').replace(/\\s+/g, ' ').trim();
+    return {
+      visible: !!(panel && !panel.classList.contains('hidden') && panel.getClientRects().length),
+      titulo: (document.querySelector('#panel-clients h1')?.textContent || '').trim(),
+      copy,
+      form: !!document.querySelector('#clients-form'),
+      nombre: !!document.querySelector('#clients-nombre'),
+      email: !!document.querySelector('#clients-email'),
+      telefono: !!document.querySelector('#clients-telefono'),
+      rut: !!document.querySelector('#clients-rut'),
+      direccion: !!document.querySelector('#clients-direccion'),
+      notas: !!document.querySelector('#clients-notas'),
+      submit: !!document.querySelector('#clients-submit'),
+      submitLabel: (document.querySelector('#clients-submit')?.textContent || '').trim(),
+      nombreLabel: (document.querySelector('label[for="clients-nombre"]')?.textContent || '').trim(),
+      search: !!document.querySelector('#clients-search'),
+      list: !!document.querySelector('#clients-list'),
+    };
+  `);
+  check(
+    seccion.visible && seccion.form && seccion.nombre && seccion.email && seccion.telefono
+      && seccion.rut && seccion.direccion && seccion.notas && seccion.submit && seccion.list,
+    'el panel Clientes muestra el formulario completo y la lista',
+    JSON.stringify({ visible: seccion.visible, form: seccion.form, list: seccion.list }),
+  );
+  check(seccion.titulo === 'Mis clientes', 'el panel se titula "Mis clientes"', seccion.titulo);
+  check(seccion.nombreLabel === 'Nombre', 'el nombre del cliente tiene su etiqueta', seccion.nombreLabel);
+  check(seccion.submitLabel === 'Guardar cliente', 'el formulario tiene el botón "Guardar cliente"', seccion.submitLabel);
+  check(seccion.search, 'la sección ofrece un buscador por nombre');
+  check(seccion.copy.includes('es gratis'), 'el panel dice que llevar la lista de clientes es gratis', seccion.copy);
+
+  const vacio = await cliente.esperar(
+    `(() => {
+      const list = document.querySelector('#clients-list');
+      const text = list ? (list.textContent || '') : '';
+      return text.includes('Todavía no tienes clientes guardados') ? text.trim() : null;
+    })()`,
+    { timeout: 20000, etiqueta: 'aparece el estado vacío' },
+  ).catch(() => null);
+  check(!!vacio, 'la sección muestra el estado vacío para una cuenta nueva', vacio ? 'texto encontrado' : 'no apareció "Todavía no tienes clientes guardados"');
+
+  // Crear un cliente con el formulario real (no con una llamada directa).
+  const nombre = 'Cliente QA Panel';
+  const correo = 'cliente.qa@djlabs.cl';
+  await escribir(cliente, '#clients-nombre', nombre);
+  await escribir(cliente, '#clients-email', correo);
+  await clic(cliente, '#clients-submit');
+
+  let fila = null;
+  try {
+    fila = await cliente.esperar(
+      `(() => {
+        const row = document.querySelector('#clients-list article[data-client-id]');
+        if (!row) return null;
+        const title = (row.querySelector('h2')?.textContent || '').trim();
+        return title === ${JSON.stringify(nombre)} ? { title, text: (row.textContent || '') } : null;
+      })()`,
+      { timeout: 30000, etiqueta: 'la fila del cliente creado aparece' },
+    );
+  } catch (error) {
+    const observed = await cliente.evaluar(`
+      const list = document.querySelector('#clients-list');
+      return list ? (list.textContent || '').trim().slice(0, 300) : 'sin lista';
+    `);
+    check(false, 'crear un cliente desde el formulario real muestra la fila', observed);
+    return;
+  }
+  check(true, 'crear un cliente desde el formulario real muestra la fila', fila.title);
+  check(fila.text.includes(correo), 'la fila muestra los datos de contacto ingresados', correo);
+
+  const detalles = await cliente.evaluar(`
+    const row = document.querySelector('#clients-list article[data-client-id]');
+    const items = row ? [...row.querySelectorAll('[data-client-detail]')] : [];
+    return items.map((item) => ({
+      campo: item.dataset.clientDetail || '',
+      texto: (item.textContent || '').replace(/\\s+/g, ' ').trim(),
+    }));
+  `);
+  check(
+    detalles.length === 1 && detalles[0].campo === 'email' && detalles[0].texto.includes(correo),
+    'la fila muestra sólo los datos de contacto que existen',
+    JSON.stringify(detalles),
+  );
+
+  // El buscador por nombre filtra la lista cuando se envía el formulario.
+  await escribir(cliente, '#clients-search', 'zzz-cliente-inexistente');
+  await clic(cliente, '#clients-search-submit');
+
+  const sinResultados = await cliente.esperar(
+    `(() => {
+      const list = document.querySelector('#clients-list');
+      const text = list ? (list.textContent || '') : '';
+      return text.includes('No encontramos clientes con ese nombre.') ? text.trim() : null;
+    })()`,
+    { timeout: 20000, etiqueta: 'la búsqueda sin resultados lo dice' },
+  ).catch(() => null);
+  check(!!sinResultados, 'una búsqueda sin resultados lo dice honestamente', sinResultados ? sinResultados.slice(0, 120) : 'no apareció "No encontramos clientes con ese nombre."');
+
+  await clic(cliente, '#clients-search-clear');
+  const restaurada = await cliente.esperar(
+    `(() => {
+      const row = document.querySelector('#clients-list article[data-client-id]');
+      if (!row) return null;
+      const title = (row.querySelector('h2')?.textContent || '').trim();
+      const busqueda = (document.querySelector('#clients-search')?.value || '').trim();
+      return title === ${JSON.stringify(nombre)} && busqueda === '' ? { title } : null;
+    })()`,
+    { timeout: 20000, etiqueta: 'la lista vuelve a mostrar el cliente' },
+  ).catch(() => null);
+  check(!!restaurada, 'limpiar la búsqueda vuelve a mostrar toda la lista', restaurada ? restaurada.title : 'el cliente no volvió a la lista');
+
+  // Editar el cliente desde la interfaz.
+  try {
+    await clicPorTexto(cliente, 'Editar', '#clients-list article');
+  } catch (error) {
+    check(false, '"Editar" abre el formulario de edición dentro de la fila', error.message);
+    return;
+  }
+
+  const editor = await cliente.esperar(
+    `(() => {
+      const form = document.querySelector('#clients-list [data-client-edit-form]');
+      if (!form || form.classList.contains('hidden')) return null;
+      const email = form.querySelector('[data-client-field="email"]');
+      return { visible: true, email: email ? (email.value || '') : '' };
+    })()`,
+    { timeout: 15000, etiqueta: 'el formulario de edición se muestra' },
+  ).catch(() => null);
+  check(!!editor, '"Editar" abre el formulario de edición dentro de la fila', editor ? `correo=${editor.email}` : 'no apareció el formulario');
+  if (!editor) {
+    return;
+  }
+
+  const correoEditado = 'cliente.editado@djlabs.cl';
+  await escribir(cliente, '#clients-list [data-client-edit-form] [data-client-field="email"]', correoEditado);
+  await clic(cliente, '#clients-list [data-client-edit-form] [data-client-edit-save]');
+
+  let editado = null;
+  try {
+    editado = await cliente.esperar(
+      `(() => {
+        const row = document.querySelector('#clients-list article[data-client-id]');
+        if (!row) return null;
+        const text = (row.textContent || '');
+        return text.includes(${JSON.stringify(correoEditado)}) ? { text } : null;
+      })()`,
+      { timeout: 30000, etiqueta: 'la fila muestra el dato editado' },
+    );
+  } catch (error) {
+    const observed = await cliente.evaluar(`
+      const row = document.querySelector('#clients-list article[data-client-id]');
+      return row ? (row.textContent || '').replace(/\\s+/g, ' ').slice(0, 240) : 'sin fila';
+    `);
+    check(false, 'editar un cliente cambia los datos visibles', observed);
+    return;
+  }
+  check(true, 'editar un cliente cambia los datos visibles', correoEditado);
+  check(!editado.text.includes(correo), 'la fila ya no muestra el dato anterior', correo);
+
+  // Eliminar el cliente: primero la confirmación, después la fila.
+  const dialogo = await clicConDialogo(cliente, 'Eliminar', '#clients-list article', true);
+  check(dialogo.type === 'confirm', 'Eliminar abre un diálogo de confirmación', `tipo=${dialogo.type}, mensaje=${dialogo.message}`);
+  check(
+    dialogo.message.includes('¿Quieres eliminar') && dialogo.message.includes('Esta acción no se puede deshacer.'),
+    'el diálogo pide confirmar con la misma redacción amable',
+    dialogo.message,
+  );
+  check(dialogo.message.includes(nombre), 'el diálogo nombra al cliente que se va a eliminar', dialogo.message);
+
+  let eliminado = null;
+  try {
+    eliminado = await cliente.esperar(
+      `(() => {
+        const list = document.querySelector('#clients-list');
+        const rows = document.querySelectorAll('#clients-list article[data-client-id]').length;
+        const empty = list ? (list.textContent || '').includes('Todavía no tienes clientes guardados') : false;
+        return rows === 0 && empty ? { rows, empty } : null;
+      })()`,
+      { timeout: 30000, etiqueta: 'la fila se elimina y vuelve el estado vacío' },
+    );
+  } catch (error) {
+    const observed = await cliente.evaluar(`
+      const list = document.querySelector('#clients-list');
+      const rows = document.querySelectorAll('#clients-list article[data-client-id]').length;
+      return JSON.stringify({ rows, text: (list?.textContent || '').trim().slice(0, 240) });
+    `);
+    check(false, 'aceptar el diálogo elimina la fila y devuelve el estado vacío', observed);
+    return;
+  }
+  check(true, 'aceptar el diálogo elimina la fila y devuelve el estado vacío', JSON.stringify(eliminado));
+
+  // La sección es gratis: no hay modal de costo, no hay llamada a la
+  // billetera ni a los créditos, y el saldo no se mueve.
+  const saldoDespues = await cliente.evaluar(`
+    return (document.querySelector('#mobile-balance')?.textContent || '').trim();
+  `);
+  check(saldoDespues === saldoAntes, 'gestionar clientes no cambia el saldo', `antes=${saldoAntes}, después=${saldoDespues}`);
+
+  const llamadas = cliente.peticiones.slice(peticionesAntes).filter((peticion) => (
+    /\/(credits|payments|wallet)\//.test(peticion.url) || peticion.url.includes('/chat/completions')
+  ));
+  check(llamadas.length === 0, 'gestionar clientes no llama a la billetera ni a los créditos', llamadas.length ? llamadas.map((p) => p.url).join(', ') : '0 llamadas');
+
+  const modal = await cliente.evaluar(`
+    const texto = document.body.innerText || '';
+    const overlays = [...document.querySelectorAll('[role="dialog"], [id*="modal" i], [class*="modal" i]')]
+      .filter((el) => el.getClientRects().length);
+    return {
+      costo: texto.includes('costará') || texto.includes('Esta acción cuesta'),
+      overlays: overlays.length,
+    };
+  `);
+  check(!modal.costo && modal.overlays === 0, 'gestionar clientes no muestra un modal de costo', JSON.stringify(modal));
+
+  await captura(cliente, 'clientes-libreta');
+}
+
+// Elimina la cuenta QA descartable que este arnés registró: la libreta de
+// clientes, el documento de prueba y las conversaciones quedan borrados con
+// ella. Si el arnés usa una cuenta fija (--email), la cuenta es de alguien
+// más y no se toca.
+async function eliminarCuentaQA(cliente) {
+  if (EMAIL_ARG) {
+    return;
+  }
+
+  try {
+    const resultado = await cliente.evaluar(`
+      const base = (typeof window.__API_BASE__ === 'string' ? window.__API_BASE__ : '') || '';
+      const response = await fetch(base + '/account/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ confirm: 'BORRAR' }),
+      });
+      return { status: response.status, body: (await response.text()).slice(0, 160) };
+    `);
+    console.log(`\n  \x1b[36minfo\x1b[0m la cuenta QA descartable se eliminó — HTTP ${resultado.status}`);
+  } catch (error) {
+    console.log(`\n  \x1b[33maviso\x1b[0m no se pudo eliminar la cuenta QA descartable: ${error.message}`);
+  }
+}
+
+// El enlace directo #/clientes debe abrir la sección al entrar con la URL
+// pegada: la ruta se resuelve al arrancar, sin depender del botón de la
+// barra de navegación.
+async function comprobarEnlaceDirecto(cliente) {
+  abrir('Enlace directo a Clientes');
+
+  // La query cambia a propósito: un cambio sólo de hash NO recarga la página
+  // y la SPA no escucha los cambios de hash.
+  await ir(cliente, `${URL_BASE}/?qa=${Date.now()}#/clientes`);
+  await dormir(1200);
+
+  const destino = await cliente.esperar(
+    `(() => {
+      const panel = document.querySelector('#panel-clients');
+      if (!panel || panel.classList.contains('hidden') || !panel.getClientRects().length) return null;
+      return {
+        hash: window.location.hash,
+        titulo: (panel.querySelector('h1')?.textContent || '').trim(),
+      };
+    })()`,
+    { timeout: 30000, etiqueta: 'el enlace directo abre la sección de clientes' },
+  ).catch(() => null);
+
+  check(!!destino, 'el enlace directo #/clientes abre la sección de clientes', destino ? `${destino.hash} · ${destino.titulo}` : 'el panel no apareció');
+  if (destino) {
+    check(destino.titulo === 'Mis clientes', 'el enlace directo muestra el panel de clientes', destino.titulo);
+  }
+}
+
 async function comprobarDocumentos(cliente) {
   abrir('Biblioteca de documentos');
 
@@ -1295,10 +1611,13 @@ try {
     if (!SKIP_CHAT) await enviarUnaConsulta(cliente);
     if (!SKIP_CHAT) await comprobarConversaciones(cliente);
     await comprobarLeyes(cliente);
+    await comprobarClientes(cliente);
     await comprobarDocumentos(cliente);
+    await comprobarEnlaceDirecto(cliente);
   }
 
   revisarConsola(cliente);
+  await eliminarCuentaQA(cliente);
 } catch (error) {
   registro.fallos.push({ seccion: 'ejecución', etiqueta: 'error fatal', extra: error.message });
   console.log(`\n\x1b[31merror fatal\x1b[0m ${error.message}`);

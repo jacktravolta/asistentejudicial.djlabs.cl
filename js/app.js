@@ -662,7 +662,7 @@ function showPanel(name) {
 
   ensurePanelMount(name);
 
-  for (const panel of ['documents', 'chat', 'conversations', 'laws', 'wallet', 'settings', 'notifications', 'admin']) {
+  for (const panel of ['documents', 'chat', 'conversations', 'laws', 'clients', 'wallet', 'settings', 'notifications', 'admin']) {
     const el = $id('panel-' + panel);
     if (el) {
       el.classList.toggle('hidden', panel !== name);
@@ -715,6 +715,18 @@ function showPanel(name) {
       console.error('[App] Failed to load the law search:', error);
     });
   }
+  if (name === 'clients') {
+    import('./clients-library.js?v=1').then((m) => {
+      if (m.initClientsLibrary) {
+        m.initClientsLibrary();
+      }
+      if (m.refreshClientsLibrary) {
+        m.refreshClientsLibrary();
+      }
+    }).catch((error) => {
+      console.error('[App] Failed to load the clients library:', error);
+    });
+  }
   if (name === 'wallet') {
     import('./wallet.js?v=4').then((m) => {
       // init() wires the panel buttons; it only works once the template
@@ -762,6 +774,7 @@ function showPanel(name) {
     chat: '#/chat',
     conversations: '#/conversaciones',
     laws: '#/leyes',
+    clients: '#/clientes',
     wallet: '#/wallet',
     admin: '#/admin',
   };
@@ -1367,6 +1380,8 @@ async function boot() {
       showPanel('conversations');
     } else if (path === '/leyes') {
       showPanel('laws');
+    } else if (path === '/clientes') {
+      showPanel('clients');
     } else if (path === '/wallet') {
       showPanel('wallet');
     } else if (path === '/recargas') {

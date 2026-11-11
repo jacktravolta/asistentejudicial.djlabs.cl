@@ -102,7 +102,118 @@ export async function apiPost(url, body, headers = {}, options = {}) {
         'Content-Type': 'application/json',
         ...headers,
       },
+      // The session lives in an httpOnly cookie: without this the browser
+      // omits it on the 2-server topology (the front and the API live on
+      // different origins) and every authenticated POST answers 401.
+      credentials: 'include',
       body: JSON.stringify(body),
+    });
+  } catch (networkError) {
+    throw new Error('No pudimos conectar con el servidor. Revisa tu conexión e inténtalo nuevamente.');
+  }
+
+  let payload;
+
+  try {
+    payload = await response.json();
+  } catch (parseError) {
+    throw new Error('No pudimos interpretar la respuesta del servidor. Inténtalo nuevamente.');
+  }
+
+  if (response.status === 401) {
+    const error = new Error('Sesión no disponible.');
+    error.status = 401;
+    throw error;
+  }
+
+  if (!payload || payload.success !== true) {
+    const message = apiErrorMessage(payload)
+      || (options.fallbackMessage || 'No pudimos completar tu solicitud en este momento. Inténtalo nuevamente.');
+    const error = new Error(message);
+    error.code = payload && payload.error && typeof payload.error === 'object'
+      ? payload.error.code
+      : undefined;
+    error.status = response.status;
+    throw error;
+  }
+
+  return payload.data;
+}
+
+/**
+ * Performs a JSON PATCH and returns the `data` payload.
+ *
+ * Same shape as apiPost: the same apiUrl() resolution, the same session
+ * cookie, the same envelope check and the same honest error messages.
+ *
+ * @param {string} url
+ * @param {object} body
+ * @param {{ fallbackMessage?: string }} [options]
+ * @returns {Promise<object>}
+ */
+export async function apiPatch(url, body, options = {}) {
+  let response;
+
+  try {
+    response = await fetch(apiUrl(url), {
+      method: 'PATCH',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify(body),
+    });
+  } catch (networkError) {
+    throw new Error('No pudimos conectar con el servidor. Revisa tu conexión e inténtalo nuevamente.');
+  }
+
+  let payload;
+
+  try {
+    payload = await response.json();
+  } catch (parseError) {
+    throw new Error('No pudimos interpretar la respuesta del servidor. Inténtalo nuevamente.');
+  }
+
+  if (response.status === 401) {
+    const error = new Error('Sesión no disponible.');
+    error.status = 401;
+    throw error;
+  }
+
+  if (!payload || payload.success !== true) {
+    const message = apiErrorMessage(payload)
+      || (options.fallbackMessage || 'No pudimos completar tu solicitud en este momento. Inténtalo nuevamente.');
+    const error = new Error(message);
+    error.code = payload && payload.error && typeof payload.error === 'object'
+      ? payload.error.code
+      : undefined;
+    error.status = response.status;
+    throw error;
+  }
+
+  return payload.data;
+}
+
+/**
+ * Performs a JSON DELETE and returns the `data` payload.
+ *
+ * @param {string} url
+ * @param {{ fallbackMessage?: string }} [options]
+ * @returns {Promise<object>}
+ */
+export async function apiDelete(url, options = {}) {
+  let response;
+
+  try {
+    response = await fetch(apiUrl(url), {
+      method: 'DELETE',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
     });
   } catch (networkError) {
     throw new Error('No pudimos conectar con el servidor. Revisa tu conexión e inténtalo nuevamente.');
