@@ -1,0 +1,159 @@
+# Front + API: módulos faltantes del panel (conversaciones, causas, clientes, leyes, escritos, documentos)
+
+## Objetivo
+
+Completar `requerimiento.txt` cerrando el hueco de backend: crear los endpoints que faltan
+para que el panel central muestre **Mis conversaciones**, **Mis documentos generados**,
+**Mis causas y plazos** y **Mis clientes**, más los módulos de **Buscador de leyes (BCN
+on demand)**, **Redactor de escritos** y **Analizador de documentos**, y extender el front
+con esas secciones — sin crear un panel nuevo ni sistemas paralelos de créditos.
+
+## Problema
+
+1. **El front llama endpoints que no existen.** La rama vieja `feat/chat-legal-module`
+   invoca `/conversations/list`, `/cases/add`, `/cases/list`, `/documents/generate`,
+   `/documents/analyze` y `/laws/search`: ninguno está registrado en `public/index.php`.
+   Desplegarla tal cual daría un panel lleno de botones 404.
+2. **La API sí tiene piezas reutilizables, sin exponer por HTTP.** `BcnClient` (resuelve
+   leyes por número exacto), `SourceChain`, `LegalCache` (tabla `legal_cache`), `TemplateRenderer`,
+   `Generator`, `DocumentExporter` (PDF/DOCX/TXT con pie legal), `conversations`/`messages`
+   (conversaciones del usuario) y `documents` (con `stored_path` hoy siempre NULL) no tienen
+   ruta para el dueño.
+3. **No existe ruta de listado para el dueño.** `GET /admin/conversations` es admin-only;
+   `GET /rag/visitor-conversations` es de visitantes del heart, no del usuario. La tabla
+   `documents` solo se lista vía `GET /admin/users/{id}`.
+4. **Causas y clientes no existen** (ni tabla, ni ruta, ni servicio). `requerimiento.txt` los
+   pide: son dominios nuevos, no deriva de nombres.
+5. **Falta el panel.** El nav del front hoy ofrece Inicio, Documentos, Consultas, Billetera y
+   Perfil; faltan las secciones del módulo 6.
+
+## Por qué
+
+El usuario pidió explícitamente crear los endpoints faltantes, commitear y completar el
+front. La Regla Madre manda reutilizar: la backend de casi todo existe y solo falta la
+ruta de acceso del dueño.
+
+## Alcance
+
+**API (`api-independent`, rama `feat/panel-modulos`):**
+- A1 `GET /conversations` + `GET /conversations/{id}/messages` (owner-scoped).
+- A2 `GET /laws/search?numero=` (BCN on demand vía `BcnClient`/`SourceChain`/`legal_cache`, gratis).
+- A3 Tabla `cases` + `GET/POST/PATCH/DELETE /cases` (ROL/RIT/RUC, tribunal, estado, plazos).
+- A4 Tabla `clients` + `GET/POST/PATCH/DELETE /clients`.
+- A5 `GET /documents` (listar documentos del dueño) + `GET /documents/{id}/download` +
+  persistir los bytes generados en `documents.stored_path`.
+- A6 `GET /documents/templates` + `POST /documents/generate` (plantillas chilenas + pie legal).
+- A7 `POST /documents/analyze` (extracción estructurada por LLM).
+
+**Front (`asistentejudicial.djlabs.cl`, rama `feat/panel-modulos-completos`):**
+- F1 Panel *Conversaciones* (listar y abrir en el chat).
+- F2 Panel *Causas y plazos*.
+- F3 Panel *Clientes*.
+- F4 Panel *Buscador de leyes*.
+- F5 Panel *Escritos* (plantillas → formulario → generar → descargar).
+- F6 Panel *Analizador de documentos*.
+- F7 *Documentos generados* dentro de la sección Documentos.
+
+## Restricciones (del requerimiento, módulo 7 y Regla Madre)
+
+- **Créditos: mismo sistema.** Nada de tablas ni saldos nuevos. Costos como tarifas del
+  `tariffs` existente (escritos 5, análisis 4, ley 0 gratis), y el front **muestra el costo
+  real de la API antes de cobrar** (modal "Esta acción costará X créditos. Tienes Y") y
+  bloquea con "Comprar créditos" si el saldo es 0.
+- **BCN on demand:** nunca descargar ni indexar todo BCN; solo por número ya consultado, con
+  caché puntual y TTL. Si BCN falla, avisar y reintentar; nunca inventar texto.
+- **Heart:** se mantiene la resolución vigente (body → query → `X-Heart-Id`), no se inventa
+  un header nuevo.
+- **Aislamiento:** toda query filtra `user_id` del dueño; toda descarga valida
+  `user_id == owner_id`.
+- **Sin panel nuevo:** se extiende el panel existente, respetando su diseño y navegación.
+- Código y comentarios en inglés; copy de UI en español neutro; el front siempre habla con
+  la API por `https://api.djlabs.cl`.
+
+## Tareas
+
+- [x] **T0** — Mapear las piezas a reutilizar y detectar qué endpoint falta de verdad.
+      *Evidencia:* `explore` sobre `api-independent` (contratos de `conversations`/`messages`,
+      `BcnClient`/`SourceChain`/`legal_cache`, `TemplateRenderer`/`Generator`/`DocumentExporter`,
+      almacenamiento de bytes, ruta de LLM con el rotador, convenciones de router y
+      migraciones) y sobre el front (secciones faltantes, patrón de módulos).
+- [ ] **A1** — Conversaciones del dueño (API) + **F1** (front).
+      *API:Hecho.* `feat(conversations): expose the owner's conversation history` (`d383622`)
+      + `fix(conversations): return the newest turns of a long thread` (`33d644e`).
+      `GET /conversations` y `GET /conversations/{id}/messages`, owner-scoped
+      (`user_id`) + aislamiento por corazón (`heart_id = :heart OR heart_id IS NULL`),
+      paginación acotada, 404 idéntico para "no es tuya" / "otro corazón" / "no existe",
+      401 sin sesión. Batería `tests/test_conversations_owner.php`: **17/17 ALL PASS**.
+      *Pendiente:* F1 (panel del front).
+- [ ] **A2** — Búsqueda de leyes (API) + **F4** (front).
+      *En curso (API):* `GET /laws/search?numero=` sobre `SourceChain::withDefaults()` +
+      `LegalCache` (TTL `legal.cache_ttl_days`), gratis, nunca inventa texto.
+      Verificado en vivo: `resolve('19628')` → 27 artículos, `bcn-json`, `vigente`.
+- [ ] **A3** — Causas y plazos (API + migración) + **F2** (front).
+- [ ] **A4** — Clientes (API + migración) + **F3** (front).
+- [ ] **A5** — Documentos del dueño + bytes persistidos (API) + **F7** (front).
+- [ ] **A6** — Plantillas y generación de escritos (API) + **F5** (front).
+- [ ] **A7** — Analizador de documentos (API) + **F6** (front).
+- [ ] **V1** — Verificación final: arnés CDP en producción con todas las secciones y
+      pruebas de API para los endpoints nuevos (owner y no-owner).
+
+## Criterios de aceptación
+
+1. Cada sección nueva del panel carga datos reales de la API y ninguna acción apunta a un
+   endpoint inexistente.
+2. Un usuario solo ve sus conversaciones, documentos, causas y clientes; otro usuario no
+   puede leerlos (verificado con dos cuentas).
+3. Buscar una ley por número devuelve texto vigente desde BCN con caché puntual; si BCN
+   falla, avisa y reintenta, nunca inventa.
+4. Las acciones con costo (escritos, análisis) muestran el costo real y el saldo antes de
+   cobrar, cobran con el sistema de créditos existente y bloquean con "Comprar créditos"
+   cuando el saldo es 0.
+5. Los documentos generados se pueden volver a descargar desde el panel.
+6. Migraciones numeradas a continuación (074, 075…), estilo del repo, sin duplicar tablas
+   existentes.
+7. `node --check` en cada JS tocado, `php -l` en cada PHP tocado, pruebas de API nuevas y
+   arnés CDP verde en local y en `https://asisjud.djlabs.cl`.
+
+## Comandos de verificación
+
+```bash
+# API
+php -l app/Rest/<nuevo>.php
+php -l public/index.php
+bash tests/<nuevo>_test.php        # estilo del repo
+
+# Front
+node --check js/<nuevo>.js
+node tests/cdp_panel_test.mjs --url http://127.0.0.1:8002
+node tests/cdp_panel_test.mjs --url https://asisjud.djlabs.cl
+```
+
+### Baterías nuevas de la API
+
+| Batería | Qué prueba | Estado |
+| --- | --- | --- |
+| `tests/test_conversations_owner.php` | A1: owner + corazón + 401 + 404 + tope de turnos | **17/17 ALL PASS** |
+| `tests/test_laws_search.php` | A2: validación y 401 (hermética, sin red) | pendiente |
+| `tests/test_laws_search_live.php` | A2: BCN real, caché TTL, artículo único, 404 (requiere red) | pendiente |
+
+## Notas de implementación
+
+- **A1** — `conversations.heart_id` es NULLABLE (migración 044): las filas anteriores a los
+  corazones llevan NULL y se tratan explícitamente como "de quien las posee". Las filas de
+  OTRO corazón nunca aparecen. El tope de 200 mensajes devuelve los turnos MÁS NUEVOS
+  (igual que `ChatService::loadHistory`), no el comienzo del hilo.
+- **A1** — Migración `074_conversations_owner_activity.sql` (archivo, no aplicada): índice
+  `(user_id, created_at)` para el listado del dueño. `cases`/`clients` pasan a 075/076.
+- **A2** — El TTL de la caché ya existe (`legal_cache.expires_at`, `legal.cache_ttl_days`
+  = 30 días por defecto): primero se sirve la caché vigente y solo después se va a la red.
+
+
+## Próximo paso
+
+A1 + F1 (conversaciones): es el corte más barato y desbloquea el patrón de "listar +
+abrir en el chat" que las demás secciones copian.
+
+---
+
+**File locator:** `odd/tasks/panel-modulos-completos.md` (repository-relative)
+**Engram mirror topic:** `odd/panel-modulos-completos/tasks`
