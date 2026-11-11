@@ -86,9 +86,23 @@ ruta de acceso del dueño.
       401 sin sesión. Batería `tests/test_conversations_owner.php`: **17/17 ALL PASS**.
       *Pendiente:* F1 (panel del front).
 - [ ] **A2** — Búsqueda de leyes (API) + **F4** (front).
-      *En curso (API):* `GET /laws/search?numero=` sobre `SourceChain::withDefaults()` +
-      `LegalCache` (TTL `legal.cache_ttl_days`), gratis, nunca inventa texto.
-      Verificado en vivo: `resolve('19628')` → 27 artículos, `bcn-json`, `vigente`.
+      *API:Hecho.* `feat(laws): search a law by number on demand from BCN` (`2df2eeb`) +
+      `fix(laws): tell an outage apart from a missing law` (`fcb9d4c`).
+      `GET /laws/search?numero=` sobre `SourceChain::withDefaults()` + `LegalCache`
+      (TTL `legal.cache_ttl_days`), gratis, nunca inventa texto, 404 = la ley no
+      existe, 503 = la fuente oficial no respondió (se puede reintentar).
+      Baterías `tests/test_laws_search.php` (hermética) y
+      `tests/test_laws_search_live.php` (BCN real): **12/12 ALL PASS**.
+      *Pendiente:* F4 (panel del front).
+- [ ] **A2b** — El caché legal perdía artículos repetidos (API).
+      *En curso.* `LegalCache::put()` deduplicaba por número de artículo: en una
+      ley refundida (cuerpo + Disposiciones Finales) la última aparición pisaba
+      a la primera. **8 de las 10 leyes cacheadas estaban dañadas**: la 19.628
+      guardaba el texto de las disposiciones finales donde va el artículo 1
+      principal; la 18.883 perdía 17 artículos. El chat ya citaba ese texto
+      equivocado. Corrección: columna `article_occurrence` + clave única con la
+      ocurrencia, y reparación de las filas dañadas (expirarlas para que la
+      cadena las vuelva a escribir completas).
 - [ ] **A3** — Causas y plazos (API + migración) + **F2** (front).
 - [ ] **A4** — Clientes (API + migración) + **F3** (front).
 - [ ] **A5** — Documentos del dueño + bytes persistidos (API) + **F7** (front).
