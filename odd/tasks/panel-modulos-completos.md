@@ -88,15 +88,20 @@ ruta de acceso del dueño.
       Sección "Conversaciones" (listar, ver la transcripción, abrir en el chat
       continuando esa conversación), arnés CDP **42/42** en local y **42/42** en
       `https://asisjud.djlabs.cl`. Entregado en `main`.
-- [ ] **A2** — Búsqueda de leyes (API) + **F4** (front).
-      *API:Hecho.* `feat(laws): search a law by number on demand from BCN` (`2df2eeb`) +
+- [x] **A2** — Búsqueda de leyes (API) + **F4** (front).
+      *API:* `feat(laws): search a law by number on demand from BCN` (`2df2eeb`) +
       `fix(laws): tell an outage apart from a missing law` (`fcb9d4c`).
       `GET /laws/search?numero=` sobre `SourceChain::withDefaults()` + `LegalCache`
       (TTL `legal.cache_ttl_days`), gratis, nunca inventa texto, 404 = la ley no
       existe, 503 = la fuente oficial no respondió (se puede reintentar).
       Baterías `tests/test_laws_search.php` (hermética) y
       `tests/test_laws_search_live.php` (BCN real): **12/12 ALL PASS**.
-      *Pendiente:* F4 (panel del front).
+      *Front:* `feat(front): add the law search section to the panel` (`eac77d0`).
+      Sección "Leyes" (buscador BCN on demand, artículo opcional, ventana de
+      artículos, enlace a la fuente oficial). Arnés CDP **70/70** local y las 28
+      aserciones nuevas en verde contra `https://asisjud.djlabs.cl`. Entregado en `main`.
+      Verifica que la consulta **no cobra**: saldo 92 → 92, 0 llamadas a la billetera,
+      0 modales de costo.
 - [x] **A2b** — El caché legal perdía artículos repetidos (API).
       `LegalCache::put()` deduplicaba por número de artículo: en una ley refundida
       (cuerpo + Disposiciones Finales) la última aparición pisaba a la primera.

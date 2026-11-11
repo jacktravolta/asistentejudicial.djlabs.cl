@@ -75,10 +75,25 @@ lo verifica como aserción, no como convención.
       HTTP 200 desde `https://api.djlabs.cl/contact`.
 - [ ] **T5** — Detectar el heart y mandar la plantilla del producto en el aviso.
       *Estado:* pendiente de cerrar el contrato exacto (ver "Heart" abajo).
-- [ ] **T6** — CSP: permitir el beacon de Cloudflare Analytics (`script-src` +
+- [x] **T6** — CSP: permitir el beacon de Cloudflare Analytics (`script-src` +
       `connect-src`) en `_headers` y en el meta CSP de los HTML.
+      *Evidencia:* commit `9591018`; `script-src` += `https://static.cloudflareinsights.com`,
+      `connect-src` += `https://cloudflareinsights.com https://static.cloudflareinsights.com`,
+      en `_headers` y en las 21 meta-CSP (idénticas entre sí). Nada más cambió: el delta
+      es append-only en esas dos directivas y revertirlo devuelve el archivo byte a byte.
+      Verificado en Chrome real (CDP): el beacon pasa y un origen de control sigue
+      bloqueado, así que la prueba tiene sensibilidad. En producción (desplegado)
+      la CSP servida ya trae los dominios.
+      *Pendiente del owner:* Cloudflare **no está inyectando** el script del beacon en
+      el HTML servido (`beacon.min.js` / `cdn-cgi/rum` ausentes), así que la CSP ya no
+      bloquea nada pero **todavía no hay datos de analytics**: falta activar Web
+      Analytics en el panel de Cloudflare.
 - [ ] **T7** — Verificación final contra el dominio desplegado, con la CSP de producción
       activa.
+      *Hecho:* la CSP servida por `https://asisjud.djlabs.cl` incluye los dominios del
+      beacon (verificado tras el deploy). *Pendiente:* confirmar el POST a
+      `https://cloudflareinsights.com/beacon` cuando el beacon sea inyectado, y cerrar
+      T5 (contrato del heart en el aviso al administrador).
 
 ## Heart: contexto gathered
 
