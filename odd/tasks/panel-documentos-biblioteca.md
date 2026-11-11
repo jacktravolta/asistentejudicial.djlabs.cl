@@ -72,6 +72,17 @@ un panel lleno de botones 404.
 | Eliminar | `DELETE /rag/sources` | body `{sourceId}` |
 | Guardar (subida) | `POST /documents/ingest` | `FormData` con `text`, `source_type`, `original_filename` |
 
+## Heart
+
+- La API sirve varios corazones y **no adivina**: un chat autenticado sin heart se rechaza
+  con `HEART_REQUIRED` (HTTP 400). Verificado contra producción: la misma pregunta da 400
+  sin heart y 200 con `heart: "default"` (cobra 8 créditos de la billetera correcta).
+- El front resuelve el heart de la instalación (`js/heart.js`): `localStorage.heart_id` →
+  `GET /ui/theme` (`data.heart`) → `'default'`. **No** se hardcodea `'default'`: en otra
+  instalación sería adivinar y cobraría la billetera de otro corazón.
+- El heart viaja en el chat (`extraBody`), en las cuatro llamadas de `/rag/sources*`
+  (query o body) y en la ingesta (`FormData`), así biblioteca y chat leen el mismo corazón.
+
 ## Restricciones
 
 - El front **siempre** habla con la API por `apiUrl()` → `https://api.djlabs.cl`, nunca
@@ -116,6 +127,11 @@ un panel lleno de botones 404.
 - [ ] **T6** — Verificación local: `node --check` + arnés CDP (lista, acciones, un solo
       chat montado).
 - [ ] **T7** — Commit + push a `main` + verificación en `https://asisjud.djlabs.cl`.
+- [x] **T8** — El chat nombra el heart: resolver el heart de la instalación y enviarlo en el
+      chat, la biblioteca y la ingesta. *Evidencia:* `js/heart.js` resuelve el heart
+      (`localStorage.heart_id` → `GET /ui/theme` → `'default'`), `ensureChat()` lo pasa en
+      `extraBody` y las cuatro llamadas de `/rag/sources*` y la ingesta lo envían; verificado
+      con `node --check` y contra la API real (400 sin heart vs 200 con `heart: default`).
 
 ## Criterios de aceptación
 
@@ -144,7 +160,8 @@ node tests/cdp_panel_test.mjs --url https://asisjud.djlabs.cl
 
 ## Próximo paso
 
-T2 + T3 + T4 en un work unit (writer delegado), después T5, T6 y T7.
+T8 cerrado (el chat nombra el heart). Sigue T6 (arnés CDP local) y T7 (commit + push de la
+rama de feature, sin tocar `main` directamente).
 
 ---
 

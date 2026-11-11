@@ -10,6 +10,7 @@ import { detectType } from './extract/detect.js?v=4';
 import { extract, DOC_ERROR, UNKNOWN_ERROR } from './extract/index.js?v=4';
 import { ingestDocument } from './api.js?v=4';
 import * as ui from './ui.js?v=5';
+import { resolveHeart } from './heart.js?v=1';
 
 // Queue of documents awaiting confirmation: [{ id, text, sourceType, file, name, status, progress }]
 let pendingQueue = [];
@@ -220,6 +221,10 @@ async function handleConfirm() {
   ui.setProgress(0);
 
   try {
+    // The ingest must land in the SAME heart the chat and the library use:
+    // the API serves several hearts and does not guess.
+    const heart = await resolveHeart();
+
     for (let i = 0; i < readyItems.length; i++) {
       const item = readyItems[i];
       const globalIndex = pendingQueue.findIndex(p => p.id === item.id);
@@ -236,6 +241,8 @@ async function handleConfirm() {
         const data = await ingestDocument({
           text: item.text,
           sourceType: item.sourceType,
+          name: item.name,
+          extra: { heart },
         });
         debugLog('ingestDocument success', data);
 

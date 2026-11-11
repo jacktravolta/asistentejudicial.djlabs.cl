@@ -1,4 +1,5 @@
 import { apiUrl } from './api-base.js';
+import { resolveHeart } from './heart.js?v=1';
 // SPA orchestrator for Asistente Judicial.
 //
 // The landing page is STATIC HTML (#view-landing) — it renders even with
@@ -682,7 +683,7 @@ function showPanel(name) {
     ensureChat();
   }
   if (name === 'documents') {
-    import('./documents-library.js?v=1').then((m) => {
+    import('./documents-library.js?v=2').then((m) => {
       if (m.initDocumentsLibrary) {
         m.initDocumentsLibrary();
       }
@@ -760,8 +761,11 @@ function ensureChat() {
   // the host, so two overlapping calls could otherwise mount two widgets.
   chatMounted = true;
 
-  import('./chat-widget.js?v=8')
-    .then((m) => {
+  // The API refuses to guess the heart: without it the chat is rejected with
+  // HEART_REQUIRED. Resolve it here so the widget sends it on the question,
+  // the quote/charge and its own attachment ingest.
+  Promise.all([import('./chat-widget.js?v=8'), resolveHeart()])
+    .then(([m, heart]) => {
       container.replaceChildren();
       chatWidget = m.mountChat(container, {
         title: 'Asistente legal',
@@ -775,6 +779,7 @@ function ensureChat() {
           // Paperclip: same client-side extraction pipeline (OCR/PDF/DOCX).
           $id('file-input')?.click();
         },
+        extraBody: { heart },
       });
 
       // Expose chatWidget globally for document integration
@@ -819,7 +824,7 @@ function ensureChat() {
 
 async function lazyInitModules() {
   try {
-    const docs = await import('./documents.js?v=5');
+    const docs = await import('./documents.js?v=6');
     if (docs.initDocuments) {
       docs.initDocuments();
     }

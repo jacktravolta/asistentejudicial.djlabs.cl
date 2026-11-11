@@ -1,9 +1,14 @@
 import { apiGet } from './http.js?v=1';
 import { apiUrl } from './api-base.js';
+import { resolveHeart } from './heart.js?v=1';
 
 // Documents library for the sources already stored in the user's account.
 // Server-provided titles and text are rendered with DOM APIs only, so they
 // can never be interpreted as markup.
+//
+// Every call names the heart explicitly: the API serves several hearts and
+// rejects requests that do not identify one, so the library and the chat must
+// read and write the SAME heart.
 
 const KIND_LABELS = Object.freeze({
   document: 'documento',
@@ -244,8 +249,9 @@ function createSourceRow(source) {
     text.content.textContent = 'Cargando el texto...';
 
     try {
+      const heart = await resolveHeart();
       const data = await apiGet(
-        `/rag/sources/text?id=${encodeURIComponent(sourceId)}`,
+        `/rag/sources/text?id=${encodeURIComponent(sourceId)}&heart=${encodeURIComponent(heart)}`,
         { fallbackMessage: 'No pudimos cargar el texto de este documento. Inténtalo nuevamente.' },
       );
       text.content.textContent = data && typeof data.text === 'string' && data.text.trim()
@@ -267,9 +273,11 @@ function createSourceRow(source) {
     rowError.classList.add('hidden');
 
     try {
+      const heart = await resolveHeart();
       const data = await apiJson('/rag/sources/chat-enabled', 'POST', {
         source_id: source.source_id,
         enabled,
+        heart,
       });
       const nextEnabled = data && typeof data.chat_enabled === 'boolean'
         ? data.chat_enabled
@@ -300,7 +308,8 @@ function createSourceRow(source) {
     rowError.classList.add('hidden');
 
     try {
-      await apiJson('/rag/sources', 'DELETE', { sourceId: source.source_id });
+      const heart = await resolveHeart();
+      await apiJson('/rag/sources', 'DELETE', { sourceId: source.source_id, heart });
       await refreshDocumentsLibrary();
     } catch (error) {
       showRowError(rowError, error);
@@ -368,7 +377,8 @@ export async function refreshDocumentsLibrary() {
   renderLoading(container);
 
   try {
-    const data = await apiGet('/rag/sources', {
+    const heart = await resolveHeart();
+    const data = await apiGet(`/rag/sources?heart=${encodeURIComponent(heart)}`, {
       fallbackMessage: 'No pudimos cargar tus documentos en este momento. Inténtalo nuevamente.',
     });
     if (version !== refreshVersion) {
