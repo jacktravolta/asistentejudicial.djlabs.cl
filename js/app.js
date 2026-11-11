@@ -662,7 +662,7 @@ function showPanel(name) {
 
   ensurePanelMount(name);
 
-  for (const panel of ['documents', 'chat', 'conversations', 'wallet', 'settings', 'notifications', 'admin']) {
+  for (const panel of ['documents', 'chat', 'conversations', 'laws', 'wallet', 'settings', 'notifications', 'admin']) {
     const el = $id('panel-' + panel);
     if (el) {
       el.classList.toggle('hidden', panel !== name);
@@ -704,6 +704,15 @@ function showPanel(name) {
       }
     }).catch((error) => {
       console.error('[App] Failed to load conversations library:', error);
+    });
+  }
+  if (name === 'laws') {
+    import('./laws-search.js?v=1').then((m) => {
+      if (m.initLawsSearch) {
+        m.initLawsSearch();
+      }
+    }).catch((error) => {
+      console.error('[App] Failed to load the law search:', error);
     });
   }
   if (name === 'wallet') {
@@ -752,6 +761,7 @@ function showPanel(name) {
     documents: '#/documentos',
     chat: '#/chat',
     conversations: '#/conversaciones',
+    laws: '#/leyes',
     wallet: '#/wallet',
     admin: '#/admin',
   };
@@ -1355,6 +1365,8 @@ async function boot() {
       showPanel('documents');
     } else if (path === '/conversaciones') {
       showPanel('conversations');
+    } else if (path === '/leyes') {
+      showPanel('laws');
     } else if (path === '/wallet') {
       showPanel('wallet');
     } else if (path === '/recargas') {

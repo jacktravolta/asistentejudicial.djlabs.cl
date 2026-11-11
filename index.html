@@ -1317,6 +1317,7 @@
           <button type="button" class="nav-item rounded-full px-3.5 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-brand-50 hover:text-brand-700" data-panel="documents">Documentos</button>
           <button type="button" class="nav-item rounded-full px-3.5 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-brand-50 hover:text-brand-700" data-panel="chat">Consultas</button>
           <button type="button" class="nav-item rounded-full px-3.5 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-brand-50 hover:text-brand-700" data-panel="conversations">Conversaciones</button>
+          <button type="button" class="nav-item rounded-full px-3.5 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-brand-50 hover:text-brand-700" data-panel="laws">Leyes</button>
           <button type="button" class="nav-item rounded-full px-3.5 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-brand-50 hover:text-brand-700" data-panel="wallet">Billetera</button>
           <button type="button" class="nav-item rounded-full px-3.5 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-brand-50 hover:text-brand-700" data-panel="settings">Perfil</button>
           <button type="button" id="nav-admin" class="nav-item hidden rounded-full px-3.5 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-brand-50 hover:text-brand-700" data-panel="admin">Admin</button>
@@ -1429,6 +1430,41 @@
       </header>
       <div id="conversations-list" class="space-y-3" aria-live="polite"></div>
     </div><!-- /#panel-conversations -->
+
+    <div id="panel-laws" class="mx-auto max-w-6xl px-4 py-6 sm:px-6">
+      <header class="mb-4 space-y-1">
+        <h1 class="text-2xl font-semibold text-slate-900 sm:text-3xl">Buscador de leyes</h1>
+        <p class="text-sm text-slate-600">
+          Consulta el texto oficial de una ley por su número, directamente en la fuente oficial.
+          Consultar una ley es gratis: no usa créditos.
+        </p>
+      </header>
+
+      <section class="space-y-4">
+        <form id="laws-form" class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div class="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label for="laws-numero" class="text-sm font-medium text-slate-700">Número de la ley</label>
+              <input id="laws-numero" name="numero" type="text" inputmode="numeric" autocomplete="off"
+                     class="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                     placeholder="Por ejemplo: 19.628">
+            </div>
+            <div>
+              <label for="laws-articulo" class="text-sm font-medium text-slate-700">Artículo (opcional)</label>
+              <input id="laws-articulo" name="articulo" type="text" inputmode="numeric" autocomplete="off"
+                     class="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                     placeholder="Artículo (opcional)">
+            </div>
+          </div>
+          <button id="laws-submit" type="submit"
+                  class="mt-4 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-200">
+            Buscar
+          </button>
+        </form>
+
+        <div id="laws-results" class="space-y-3" aria-live="polite"></div>
+      </section>
+    </div><!-- /#panel-laws -->
 
     <div id="panels"></div>
   </template>
@@ -2671,6 +2707,6 @@
 
 </template>
 
-  <script type="module" src="./js/app.js?v=11"></script>
+  <script type="module" src="./js/app.js?v=12"></script>
 </body>
 </html>

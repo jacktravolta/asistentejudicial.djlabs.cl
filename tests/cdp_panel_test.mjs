@@ -773,6 +773,239 @@ async function comprobarConversaciones(cliente) {
   check(destino.stored === idAbierto, 'la conversación abierta queda guardada para la pestaña', `sessionStorage=${destino.stored}, fila=${idAbierto}`);
 }
 
+// Busca una ley real por su número y comprueba que el panel muestra el texto
+// oficial tal como lo devuelve la API: el encabezado, los estados de vigencia
+// y verificación, el enlace a la fuente y los artículos (incluido el artículo
+// 1 del cuerpo, que el caché legal solía mostrar con el texto equivocado).
+//
+// Consultar una ley es gratis: la comprobación final verifica que el saldo
+// no se movió y que no se llamó a la billetera ni a los créditos.
+async function comprobarLeyes(cliente) {
+  abrir('Buscador de leyes');
+
+  const nav = await cliente.evaluar(`
+    const botones = [...document.querySelectorAll('[data-panel="laws"]')];
+    return {
+      count: botones.length,
+      label: (botones[0]?.textContent || '').trim(),
+    };
+  `);
+  check(nav.count === 1, 'la navegación autenticada expone Leyes', `data-panel="laws" x${nav.count}`);
+  check(nav.label === 'Leyes', 'la sección se llama "Leyes"', nav.label);
+
+  // Un front que todavía no tiene la sección no debe abortar el resto del
+  // arnés: se informa del fallo y se sigue con las demás comprobaciones.
+  if (!nav.count) {
+    return;
+  }
+
+  await clic(cliente, '[data-panel="laws"]');
+  await dormir(400);
+
+  const seccion = await cliente.evaluar(`
+    const panel = document.querySelector('#panel-laws');
+    const numero = document.querySelector('#laws-numero');
+    const articulo = document.querySelector('#laws-articulo');
+    const submit = document.querySelector('#laws-submit');
+    const copy = (document.querySelector('#panel-laws header p')?.textContent || '').replace(/\\s+/g, ' ').trim();
+    return {
+      visible: !!(panel && !panel.classList.contains('hidden') && panel.getClientRects().length),
+      titulo: (document.querySelector('#panel-laws h1')?.textContent || '').trim(),
+      copy,
+      numero: !!numero,
+      articulo: !!articulo,
+      submit: !!submit,
+      numeroLabel: (document.querySelector('label[for="laws-numero"]')?.textContent || '').trim(),
+      articuloLabel: (document.querySelector('label[for="laws-articulo"]')?.textContent || '').trim(),
+      numeroPlaceholder: numero ? (numero.getAttribute('placeholder') || '') : '',
+      articuloPlaceholder: articulo ? (articulo.getAttribute('placeholder') || '') : '',
+      submitLabel: submit ? (submit.textContent || '').trim() : '',
+    };
+  `);
+  check(seccion.visible && seccion.numero && seccion.articulo && seccion.submit, 'el panel Leyes muestra el formulario de búsqueda', JSON.stringify({ visible: seccion.visible, numero: seccion.numero, articulo: seccion.articulo, submit: seccion.submit }));
+  check(seccion.titulo === 'Buscador de leyes', 'el panel se titula "Buscador de leyes"', seccion.titulo);
+  check(seccion.numeroLabel === 'Número de la ley', 'el número de la ley tiene su etiqueta', seccion.numeroLabel);
+  check(seccion.articuloLabel === 'Artículo (opcional)', 'el artículo es un campo opcional con etiqueta', seccion.articuloLabel);
+  check(seccion.numeroPlaceholder === 'Por ejemplo: 19.628', 'el campo del número sugiere el ejemplo 19.628', seccion.numeroPlaceholder);
+  check(seccion.articuloPlaceholder === 'Artículo (opcional)', 'el campo del artículo se declara opcional', seccion.articuloPlaceholder);
+  check(seccion.submitLabel === 'Buscar', 'el formulario tiene el botón "Buscar"', seccion.submitLabel);
+  check(seccion.copy.includes('Consultar una ley es gratis: no usa créditos.'), 'el panel dice que consultar una ley es gratis', seccion.copy);
+
+  // El saldo se lee DESPUÉS de entrar al panel: así cualquier refresco de la
+  // sesión que el chat deja en vuelo ya terminó y la comparación mide sólo
+  // el efecto de la consulta legal.
+  const saldoAntes = await cliente.evaluar(`
+    return (document.querySelector('#mobile-balance')?.textContent || '').trim();
+  `);
+  const peticionesAntes = cliente.peticiones.length;
+
+  await escribir(cliente, '#laws-numero', '19628');
+  await clic(cliente, '#laws-submit');
+
+  let busqueda = null;
+  try {
+    busqueda = await cliente.esperar(
+      `(() => {
+        const card = document.querySelector('#laws-results article[data-law-numero]');
+        if (!card) return null;
+        const articulos = [...card.querySelectorAll('[data-article-numero]')];
+        if (!articulos.length) return null;
+        return {
+          titulo: (card.querySelector('h2')?.textContent || '').trim(),
+          articulos: articulos.length,
+        };
+      })()`,
+      { timeout: 60000, etiqueta: 'la ley 19.628 aparece con sus artículos' },
+    );
+  } catch (error) {
+    const observed = await cliente.evaluar(`
+      const results = document.querySelector('#laws-results');
+      return results ? (results.textContent || '').trim().slice(0, 300) : 'sin resultados';
+    `);
+    check(false, 'la búsqueda muestra la ley 19.628 con sus artículos', observed);
+    return;
+  }
+  check(true, 'la búsqueda muestra la ley 19.628 con sus artículos', `${busqueda.articulos} artículos · ${busqueda.titulo}`);
+
+  // La API es la autoridad: se vuelve a consultar en la página y se compara
+  // con lo que el panel muestra.
+  const comparacion = await cliente.evaluar(`
+    const base = (typeof window.__API_BASE__ === 'string' ? window.__API_BASE__ : '') || '';
+    const heart = ${JSON.stringify(HEART_CHAT || 'default')};
+    const response = await fetch(base + '/laws/search?numero=19628&heart=' + encodeURIComponent(heart), {
+      headers: { Accept: 'application/json' },
+      credentials: 'include',
+    });
+    const payload = await response.json().catch(() => null);
+    const data = payload && payload.data ? payload.data : {};
+    const card = document.querySelector('#laws-results article[data-law-numero]');
+    const articulos = card ? [...card.querySelectorAll('[data-article-numero]')] : [];
+    return {
+      status: response.status,
+      titulo: String(data.titulo || ''),
+      total: Number(data.total_articulos),
+      totalTexto: new Intl.NumberFormat('es-CL').format(Number(data.total_articulos) || 0) + ' artículos en total',
+      cardTitulo: card ? String(card.querySelector('h2')?.textContent || '').trim() : '',
+      cardTexto: card ? String(card.textContent || '') : '',
+      articulos: articulos.length,
+      primeroNumero: articulos[0] ? String(articulos[0].dataset.articleNumero || '') : '',
+      primeroTexto: articulos[0] ? String(articulos[0].querySelector('p')?.textContent || '').trim() : '',
+      repeticiones: articulos.filter((item) => item.dataset.articleNumero === '1').length,
+      textosUno: articulos
+        .filter((item) => item.dataset.articleNumero === '1')
+        .map((item) => String(item.querySelector('p')?.textContent || '').trim()),
+      href: card ? String(card.querySelector('a[href]')?.href || '') : '',
+    };
+  `);
+
+  check(comparacion.status === 200, 'la API responde la búsqueda de la ley 19.628', `HTTP ${comparacion.status}`);
+  check(comparacion.cardTitulo === comparacion.titulo && comparacion.titulo !== '', 'el panel muestra el título real de la ley', `panel=${comparacion.cardTitulo}`);
+  check(comparacion.cardTexto.includes(comparacion.totalTexto), 'el panel muestra el total de artículos de la ley', comparacion.totalTexto);
+  check(comparacion.articulos >= 1 && comparacion.primeroTexto.length > 0, 'el panel muestra el texto de al menos un artículo', `${comparacion.articulos} artículos`);
+  check(
+    comparacion.primeroNumero === '1' && comparacion.primeroTexto.startsWith('El tratamiento de los datos de carácter personal'),
+    'el artículo 1 mostrado es el del cuerpo de la ley',
+    comparacion.primeroTexto.slice(0, 90),
+  );
+  check(
+    comparacion.textosUno.length >= 2 && comparacion.textosUno[0] !== comparacion.textosUno[1],
+    'la ley refundida muestra las repeticiones sin ocultarlas',
+    `repeticiones del artículo 1=${comparacion.repeticiones}`,
+  );
+  check(
+    comparacion.cardTexto.includes('repite algunos números de artículo'),
+    'el panel explica por qué se repiten los números de artículo',
+  );
+  check(comparacion.cardTexto.includes('Vigente'), 'el panel muestra el estado de vigencia "Vigente"');
+  check(comparacion.cardTexto.includes('Texto oficial verificado'), 'el panel muestra que el texto oficial está verificado');
+  check(
+    comparacion.href !== '' && /^https?:\/\//.test(comparacion.href),
+    'el panel enlaza a la fuente oficial',
+    comparacion.href,
+  );
+
+  // Una ley que no existe: el mensaje honesto del servidor, sin romper el panel.
+  await escribir(cliente, '#laws-numero', '999999999');
+  await clic(cliente, '#laws-submit');
+
+  let inexistente = null;
+  try {
+    inexistente = await cliente.esperar(
+      `(() => {
+        const results = document.querySelector('#laws-results');
+        const text = results ? (results.textContent || '') : '';
+        return text.includes('No encontramos una ley con ese número.') ? text.trim() : null;
+      })()`,
+      { timeout: 30000, etiqueta: 'aparece el mensaje de ley inexistente' },
+    );
+  } catch (error) {
+    check(false, 'una ley inexistente muestra el mensaje honesto de la API', error.message);
+  }
+  if (inexistente) {
+    check(true, 'una ley inexistente muestra el mensaje honesto de la API', inexistente.slice(0, 120));
+  }
+
+  // Un artículo puntual: exactamente uno, y el del cuerpo de la ley.
+  await escribir(cliente, '#laws-numero', '19628');
+  await escribir(cliente, '#laws-articulo', '1');
+  await clic(cliente, '#laws-submit');
+
+  let articulo = null;
+  try {
+    articulo = await cliente.esperar(
+      `(() => {
+        const card = document.querySelector('#laws-results article[data-law-numero]');
+        if (!card) return null;
+        const articulos = [...card.querySelectorAll('[data-article-numero]')];
+        if (!articulos.length) return null;
+        return {
+          count: articulos.length,
+          numero: articulos[0].dataset.articleNumero || '',
+          texto: (articulos[0].querySelector('p')?.textContent || '').trim(),
+          titulo: (card.querySelector('h2')?.textContent || '').trim(),
+          textoPanel: (card.textContent || '').trim(),
+        };
+      })()`,
+      { timeout: 60000, etiqueta: 'el artículo pedido aparece' },
+    );
+  } catch (error) {
+    const observed = await cliente.evaluar(`
+      const results = document.querySelector('#laws-results');
+      return results ? (results.textContent || '').trim().slice(0, 300) : 'sin resultados';
+    `);
+    check(false, 'buscar un artículo muestra exactamente un artículo', observed);
+    return;
+  }
+  check(articulo.count === 1, 'buscar un artículo muestra exactamente un artículo', `${articulo.count} artículos`);
+  check(articulo.numero === '1' && articulo.texto.startsWith('El tratamiento de los datos de carácter personal'), 'el artículo pedido es el del cuerpo de la ley', articulo.texto.slice(0, 90));
+  check(!articulo.textoPanel.includes('No encontramos ese artículo'), 'el artículo pedido existe en la ley');
+
+  // Consultar una ley es gratis: el saldo no se mueve y no se llama a la
+  // billetera, a los créditos ni al chat.
+  const saldoDespues = await cliente.evaluar(`
+    return (document.querySelector('#mobile-balance')?.textContent || '').trim();
+  `);
+  check(saldoDespues === saldoAntes, 'consultar una ley no cambia el saldo', `antes=${saldoAntes}, después=${saldoDespues}`);
+
+  const llamadas = cliente.peticiones.slice(peticionesAntes).filter((peticion) => (
+    /\/(credits|payments|wallet)\//.test(peticion.url) || peticion.url.includes('/chat/completions')
+  ));
+  check(llamadas.length === 0, 'consultar una ley no llama a la billetera ni a los créditos', llamadas.length ? llamadas.map((p) => p.url).join(', ') : '0 llamadas');
+
+  const modal = await cliente.evaluar(`
+    const texto = document.body.innerText || '';
+    const overlays = [...document.querySelectorAll('[role="dialog"], [id*="modal" i], [class*="modal" i]')]
+      .filter((el) => el.getClientRects().length);
+    return {
+      costo: texto.includes('costará') || texto.includes('Esta acción cuesta'),
+      overlays: overlays.length,
+    };
+  `);
+  check(!modal.costo && modal.overlays === 0, 'consultar una ley no muestra un modal de costo', JSON.stringify(modal));
+
+  await captura(cliente, 'leyes-buscador');
+}
+
 async function comprobarDocumentos(cliente) {
   abrir('Biblioteca de documentos');
 
@@ -991,6 +1224,16 @@ function esRuidoDeTerceros(entrada) {
   ) {
     return true;
   }
+  // La prueba del buscador pide A PROPÓSITO una ley que no existe: el 404 del
+  // servidor es la respuesta esperada, no un error de la aplicación.
+  if (
+    entrada.source === 'network' &&
+    texto.includes('/laws/search') &&
+    texto.includes('999999999') &&
+    texto.includes('404')
+  ) {
+    return true;
+  }
   if (
     texto.includes('cloudflareinsights') ||
     texto.includes('static.cloudflareinsights.com') ||
@@ -1051,6 +1294,7 @@ try {
     await comprobarNavegacion(cliente);
     if (!SKIP_CHAT) await enviarUnaConsulta(cliente);
     if (!SKIP_CHAT) await comprobarConversaciones(cliente);
+    await comprobarLeyes(cliente);
     await comprobarDocumentos(cliente);
   }
 
