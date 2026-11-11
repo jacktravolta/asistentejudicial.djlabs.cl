@@ -117,7 +117,17 @@ ruta de acceso del dueño.
       Verificado E2E: `GET /laws/search?numero=19628&articulo=1` devuelve ahora el
       artículo 1 **principal**, no el de las disposiciones finales.
 - [ ] **A3** — Causas y plazos (API + migración) + **F2** (front).
+      *API:Hecho.* `feat(cases): let the owner track their cases and deadlines` (`26baeca`).
+      Migración `077_cases.sql` (rol/ruc/rit, tribunal, materia, estado, etapa,
+      última resolución, próxima audiencia, fecha de ingreso, `fuente_estado`,
+      notas; FK a `clients` con `ON DELETE SET NULL`), CRUD owner-scoped y
+      heart-scoped, filtros `?cliente_id=` y `?proximo=`. Batería
+      `tests/test_cases_owner.php`: **35/35 ALL PASS**. *Pendiente:* F2 (front).
 - [ ] **A4** — Clientes (API + migración) + **F3** (front).
+      *API:Hecho.* `feat(clients): let the owner manage their clients` (`56e1a55`).
+      Migración `076_clients.sql`, CRUD owner-scoped y heart-scoped, búsqueda por
+      nombre (`q`, con el `%` literal). Batería `tests/test_clients_owner.php`:
+      **29/29 ALL PASS**. *Pendiente:* F3 (front).
 - [ ] **A5** — Documentos del dueño + bytes persistidos (API) + **F7** (front).
 - [ ] **A6** — Plantillas y generación de escritos (API) + **F5** (front).
 - [ ] **A7** — Analizador de documentos (API) + **F6** (front).
@@ -194,6 +204,17 @@ node tests/cdp_panel_test.mjs --url https://asisjud.djlabs.cl
   el requerimiento lo permite ("si no se puede automatizar 100%, permitir carga manual").
   La tabla `cases` guarda `fuente_estado` ('manual' | 'pjud') y los campos que pjud
   devolvería, para que la integración sea honesta cuando exista.
+- **Contrato REST (A3/A4)** — Tres reglas que el front tiene que respetar:
+  1. **El heart es obligatorio**: sin él (body → query → `X-Heart-Id`) la API responde
+     400 con `HeartRequiredException`. No se adivina la aplicación.
+  2. **Las rutas REST responden 200, nunca 201**: `$respondRest` siempre devuelve 200
+     cuando el handler devuelve un array.
+  3. **PATCH y DELETE no llevan body**: el heart viaja en la query (`?heart=default`).
+  Además, las listas de clientes y causas no traen `limit`/`offset`: devuelven todo.
+- **A3/A4** — `app/Rest/OwnerRecord.php` es el único helper compartido nuevo (scope
+  owner+heart, validación de campos, fechas UTC). No es un framework: sin SQL ni tablas.
+  Ojo: PDO corre con `EMULATE_PREPARES=false`, así que un placeholder con nombre no
+  se puede repetir en la misma sentencia (usar `:nombre` / `:nombre2`).
 
 
 ## Próximo paso
