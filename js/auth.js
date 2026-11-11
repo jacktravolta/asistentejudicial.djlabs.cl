@@ -207,7 +207,7 @@ export async function login({ email, password }) {
 export function initAuth(options = {}) {
   const form = document.getElementById('request-section');
   const notice = document.getElementById('notice');
-  const errorBox = document.getElementById('error');
+  const errorBox = document.getElementById('auth-error');
 
   if (!form || !notice || !errorBox) {
     return;

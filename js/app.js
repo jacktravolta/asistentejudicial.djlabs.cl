@@ -19,7 +19,7 @@ let chatWidget = null;
 
 async function getAuth() {
   if (!authMod) {
-    authMod = await import('./auth.js');
+    authMod = await import('./auth.js?v=2');
   }
   return authMod;
 }
@@ -302,7 +302,7 @@ function showDashboard(session) {
       m.refreshUnreadBadge();
     }
   }).catch(() => {});
-  showPanel('documents');
+  showPanel(session && session.user && session.user.role === 'admin' ? 'admin' : 'chat');
   window.scrollTo(0, 0);
 }
 
@@ -649,7 +649,7 @@ function ensurePanelMount(name) {
 
 // "Entrar al panel" lands each role on its own default panel.
 function enterPanel(user) {
-  showPanel(user && user.role === 'admin' ? 'admin' : 'documents');
+  showPanel(user && user.role === 'admin' ? 'admin' : 'chat');
 }
 
 function showPanel(name) {
@@ -678,9 +678,20 @@ function showPanel(name) {
     button.classList.toggle('hover:text-brand-700', !active);
   });
 
-  if (name === 'documents' || name === 'chat') {
-    // The documents view embeds the same chat box ("Haz una pregunta").
+  if (name === 'chat') {
     ensureChat();
+  }
+  if (name === 'documents') {
+    import('./documents-library.js?v=1').then((m) => {
+      if (m.initDocumentsLibrary) {
+        m.initDocumentsLibrary();
+      }
+      if (m.refreshDocumentsLibrary) {
+        m.refreshDocumentsLibrary();
+      }
+    }).catch((error) => {
+      console.error('[App] Failed to load documents library:', error);
+    });
   }
   if (name === 'wallet') {
     import('./wallet.js?v=4').then((m) => {
@@ -724,7 +735,7 @@ function showPanel(name) {
   // files and a path-based route (/wallet) would 404 on a host without a
   // server rewrite — and the sibling stubs (wallet.html, chat.html, …)
   // already redirect to index.html#/wallet and friends.
-  const pathFor = { documents: '#/', wallet: '#/wallet', admin: '#/admin' };
+  const pathFor = { documents: '#/documentos', chat: '#/chat', wallet: '#/wallet', admin: '#/admin' };
   if (pathFor[name] && window.history && window.history.replaceState) {
     const current = window.location.hash.replace(/^#/, '') || '/';
     const target = pathFor[name].replace(/^#/, '');
@@ -740,12 +751,18 @@ function ensureChat() {
   if (chatMounted) {
     return;
   }
-  const container = $id('chat');
+  const container = $id('chat-consultas');
   if (!container) {
     return;
   }
+
+  // Set the guard before the dynamic import resolves. mountChat() appends to
+  // the host, so two overlapping calls could otherwise mount two widgets.
+  chatMounted = true;
+
   import('./chat-widget.js?v=8')
     .then((m) => {
+      container.replaceChildren();
       chatWidget = m.mountChat(container, {
         title: 'Asistente legal',
         placeholder: 'Escribe tu pregunta aquí…',
@@ -762,18 +779,6 @@ function ensureChat() {
 
       // Expose chatWidget globally for document integration
       window.chatWidget = chatWidget;
-
-      // Move the attachment pipeline feedback (progress/result/confirm)
-      // into the conversation, right above the input bar.
-      const host = chatWidget && chatWidget.attachmentHost;
-      if (host) {
-        for (const id of ['error', 'progress-wrap', 'result', 'success']) {
-          const node = $id(id);
-          if (node) {
-            host.appendChild(node);
-          }
-        }
-      }
 
       // Drag & drop a file anywhere over the chat runs the same pipeline.
       ['dragenter', 'dragover'].forEach((eventName) => {
@@ -800,27 +805,21 @@ function ensureChat() {
         fileInput.dispatchEvent(new Event('change', { bubbles: true }));
       });
 
-      // Discard a pending attachment without saving it.
-      const discard = $id('discard-btn');
-      if (discard) {
-        discard.addEventListener('click', () => {
-          $id('result')?.classList.add('hidden');
-          const fileInput = $id('file-input');
-          if (fileInput) {
-            fileInput.value = '';
-          }
-        });
-      }
-
-      chatMounted = true;
       lazyInitModules();
     })
-    .catch(() => {});
+    .catch((error) => {
+      chatMounted = false;
+      console.error('[App] Failed to mount chat widget:', error);
+      const notice = document.createElement('p');
+      notice.className = 'rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900';
+      notice.textContent = 'No pudimos cargar el chat en este momento. Puedes volver a intentarlo al cambiar de sección.';
+      container.replaceChildren(notice);
+    });
 }
 
 async function lazyInitModules() {
   try {
-    const docs = await import('./documents.js?v=4');
+    const docs = await import('./documents.js?v=5');
     if (docs.initDocuments) {
       docs.initDocuments();
     }
@@ -941,8 +940,12 @@ async function doLogout() {
 
   currentUser = null;
   chatMounted = false;
+  if (chatWidget && typeof chatWidget.destroy === 'function') {
+    chatWidget.destroy();
+  }
   chatWidget = null;
-  const container = $id('chat');
+  window.chatWidget = null;
+  const container = $id('chat-consultas');
   if (container) {
     container.replaceChildren();
   }
@@ -1323,6 +1326,10 @@ async function boot() {
       if (session && session.user && session.user.role === 'admin') {
         showPanel('admin');
       }
+    } else if (path === '/chat') {
+      showPanel('chat');
+    } else if (path === '/documentos') {
+      showPanel('documents');
     } else if (path === '/wallet') {
       showPanel('wallet');
     } else if (path === '/recargas') {

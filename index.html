@@ -1212,7 +1212,7 @@
 
     <!-- Confirmation / error area -->
     <section id="notice" class="hidden rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900" role="status" aria-live="polite"></section>
-    <section id="error" class="hidden rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="alert" aria-live="polite"></section>
+    <section id="auth-error" class="hidden rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="alert" aria-live="polite"></section>
 
     <footer class="flex flex-col items-center gap-2 text-center">
       <nav class="flex items-center gap-4 text-xs text-slate-500" aria-label="Información legal">
@@ -1315,6 +1315,7 @@
         <nav class="flex flex-wrap items-center gap-1" aria-label="Paneles de la aplicación">
           <button type="button" class="nav-item rounded-full px-3.5 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-brand-50 hover:text-brand-700" data-panel="home">Inicio</button>
           <button type="button" class="nav-item rounded-full px-3.5 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-brand-50 hover:text-brand-700" data-panel="documents">Documentos</button>
+          <button type="button" class="nav-item rounded-full px-3.5 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-brand-50 hover:text-brand-700" data-panel="chat">Consultas</button>
           <button type="button" class="nav-item rounded-full px-3.5 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-brand-50 hover:text-brand-700" data-panel="wallet">Billetera</button>
           <button type="button" class="nav-item rounded-full px-3.5 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-brand-50 hover:text-brand-700" data-panel="settings">Perfil</button>
           <button type="button" id="nav-admin" class="nav-item hidden rounded-full px-3.5 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-brand-50 hover:text-brand-700" data-panel="admin">Admin</button>
@@ -1332,51 +1333,93 @@
       </div>
     </header>
 
-    <div id="panel-documents">
-      <!-- Attachment pipeline feedback (client-side OCR/PDF/DOCX extraction).
-           Hidden until the chat paperclip runs it; app.js moves these nodes
-           into the chat widget so progress/result live inside the conversation. -->
-      <section id="error" class="hidden rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="alert" aria-live="polite"></section>
-      
-      <!-- Upload list: shows attached files with progress -->
-      <section id="upload-list" class="hidden rounded-xl border border-slate-200 bg-white p-3 space-y-1 max-h-40 overflow-y-auto"></section>
-      
-      <section id="progress-wrap" class="hidden space-y-2">
-      <div class="h-2 w-full overflow-hidden rounded-full bg-slate-200">
-        <div id="progress-bar" class="h-full w-0 rounded-full bg-blue-500 transition-all duration-200"></div>
-      </div>
-      <div class="flex items-center justify-between text-xs text-slate-500">
-        <span id="status" aria-live="polite"></span>
-        <span id="progress-label">0%</span>
-      </div>
-    </section>
-      <section id="result" class="hidden space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
-        <div class="flex items-center justify-between gap-3">
-          <h2 class="truncate text-sm font-semibold text-slate-800">Documento listo</h2>
-          <span id="result-meta" class="shrink-0 text-xs text-slate-500"></span>
-        </div>
-        <!-- The extracted content never renders in the conversation: it stays
-             hidden here (documents.js writes the preview) and only reaches the
-             engine after the user confirms. -->
-        <pre id="result-text" class="hidden" aria-hidden="true"></pre>
-        <p class="text-xs text-slate-500">El contenido no se muestra en el chat. Al confirmar se guardará en tu cuenta.</p>
-        <div class="flex justify-end gap-2">
-          <button id="discard-btn" type="button"
-                  class="rounded-lg px-3 py-2 text-sm font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-700">
-            Descartar
-          </button>
-          <button id="confirm-btn" type="button"
-                  class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-200">
-            Confirmar y guardar
+    <div id="panel-documents" class="mx-auto max-w-6xl px-4 py-6 sm:px-6">
+      <section class="space-y-4">
+        <header class="space-y-1">
+          <h1 class="text-2xl font-semibold text-slate-900 sm:text-3xl">Mis documentos</h1>
+          <p class="text-sm leading-relaxed text-slate-600">
+            Guarda tus archivos aquí y decide cuáles puede usar el asistente en tus consultas.
+          </p>
+        </header>
+
+        <div class="flex flex-wrap items-center gap-3">
+          <button id="documents-upload-button" type="button"
+                  class="rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-200">
+            Subir un documento
           </button>
         </div>
-      </section>
-      <section id="success" class="hidden rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900" role="status" aria-live="polite"></section>
-      <input id="file-input" type="file"
+
+        <button id="dropzone" type="button"
+                class="flex min-h-[400px] w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-300 bg-white px-6 py-8 text-center transition hover:border-blue-400 hover:bg-blue-50/40 focus:outline-none focus:ring-2 focus:ring-blue-200">
+          <span class="text-sm font-medium text-slate-700">Arrastra un archivo aquí o haz clic para elegirlo</span>
+          <span class="text-xs text-slate-500">PDF, Word, imagen, texto o audio</span>
+        </button>
+
+        <div class="rounded-xl border border-slate-200 bg-white p-4">
+          <label for="free-text" class="text-sm font-medium text-slate-700">También puedes pegar un texto</label>
+          <textarea id="free-text" rows="4"
+                    class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                    placeholder="Escribe o pega aquí el texto que quieres guardar."></textarea>
+          <button id="text-submit" type="button"
+                  class="mt-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50">
+            Preparar texto
+          </button>
+        </div>
+
+        <div id="documents-list" class="space-y-3" aria-live="polite"></div>
+
+        <!-- Feedback for the client-side extraction and ingest pipeline. -->
+        <section id="error" class="hidden rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="alert" aria-live="polite"></section>
+
+        <!-- Upload list: shows attached files with progress -->
+        <section id="upload-list" class="hidden rounded-xl border border-slate-200 bg-white p-3 space-y-1 max-h-40 overflow-y-auto"></section>
+
+        <section id="progress-wrap" class="hidden space-y-2">
+          <div class="h-2 w-full overflow-hidden rounded-full bg-slate-200">
+            <div id="progress-bar" class="h-full w-0 rounded-full bg-blue-500 transition-all duration-200"></div>
+          </div>
+          <div class="flex items-center justify-between text-xs text-slate-500">
+            <span id="status" aria-live="polite"></span>
+            <span id="progress-label">0%</span>
+          </div>
+        </section>
+
+        <section id="result" class="hidden space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+          <div class="flex items-center justify-between gap-3">
+            <h2 class="truncate text-sm font-semibold text-slate-800">Documento listo</h2>
+            <span id="result-meta" class="shrink-0 text-xs text-slate-500"></span>
+          </div>
+          <!-- The extracted content never renders in the conversation: it stays
+               hidden here (documents.js writes the preview) and only reaches the
+               engine after the user confirms. -->
+          <pre id="result-text" class="hidden" aria-hidden="true"></pre>
+          <p class="text-xs text-slate-500">El contenido no se muestra en el chat. Al confirmar se guardará en tu cuenta.</p>
+          <div class="flex justify-end gap-2">
+            <button id="discard-btn" type="button"
+                    class="rounded-lg px-3 py-2 text-sm font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-700">
+              Descartar
+            </button>
+            <button id="confirm-btn" type="button"
+                    class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-200">
+              Confirmar y guardar
+            </button>
+          </div>
+        </section>
+
+        <section id="success" class="hidden rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900" role="status" aria-live="polite"></section>
+        <input id="file-input" type="file"
                accept=".png,.jpg,.jpeg,.webp,.gif,.pdf,.docx,.txt,.md,.mp3,.wav,.ogg,.m4a,.flac,.webm"
                class="sr-only">
-      <div id="chat" class="h-[70vh] min-h-[520px]"></div>
+      </section>
     </div><!-- /#panel-documents -->
+
+    <div id="panel-chat" class="mx-auto max-w-6xl px-4 py-6 sm:px-6">
+      <header class="mb-4 space-y-1">
+        <h1 class="text-2xl font-semibold text-slate-900 sm:text-3xl">Consultas</h1>
+        <p class="text-sm text-slate-600">Conversa con el asistente y usa los documentos que decidas compartir.</p>
+      </header>
+      <div id="chat-consultas" class="h-[70vh] min-h-[520px]"></div>
+    </div><!-- /#panel-chat -->
 
     <div id="panels"></div>
   </template>
@@ -2427,31 +2470,6 @@
   </div>
   </template>
 
-  <template id="tpl-chat">
-<header class="mx-auto flex max-w-2xl items-center justify-between gap-4 px-4 pt-6">
-    <a href="#/" class="text-sm font-semibold text-slate-900">Asistente Jurídico Digital</a>
-    <button type="button" data-theme-toggle aria-label="Cambiar tema" title="Cambiar tema" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 transition hover:border-brand-400 hover:text-brand-700">
-      <svg class="icon-sun h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2m0 14v2M5.6 5.6l1.4 1.4m10 10l1.4 1.4M3 12h2m14 0h2M5.6 18.4l1.4-1.4m10-10l1.4-1.4M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-      <svg class="icon-moon h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12.8A8.5 8.5 0 1111.2 3a6.6 6.6 0 009.8 9.8z"/></svg>
-    </button>
-  </header>
-
-<header class="space-y-1">
-      <h1 class="text-2xl font-semibold text-slate-900">Preguntas</h1>
-      <p class="text-sm text-slate-600">
-        Respuestas con asistencia de IA a partir de la información disponible.
-        No constituyen asesoría legal: revisa siempre con un profesional.
-      </p>
-    </header>
-
-    <div id="chat" class="h-[70vh]"></div>
-
-    <p class="text-xs leading-relaxed text-slate-500">
-      Estás preguntando como invitado. Crea una cuenta para hacer más preguntas
-      y guardar tu conversación.
-    </p>
-  </template>
-
   <template id="tpl-terminos">
 <header class="border-b border-slate-200 bg-white">
     <div class="mx-auto flex max-w-3xl items-center justify-between gap-4 px-4 py-4">
@@ -2644,6 +2662,6 @@
 
 </template>
 
-  <script type="module" src="./js/app.js?v=7"></script>
+  <script type="module" src="./js/app.js?v=9"></script>
 </body>
 </html>
