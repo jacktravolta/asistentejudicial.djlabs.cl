@@ -60,7 +60,7 @@ export function setProgress(percent) {
  * @param {string} msg
  */
 export function showError(msg) {
-  const el = $('doc-error');
+  const el = $('error');
   if (!el) {
     return;
   }

@@ -9,7 +9,7 @@
 import { detectType } from './extract/detect.js?v=4';
 import { extract, DOC_ERROR, UNKNOWN_ERROR } from './extract/index.js?v=4';
 import { ingestDocument } from './api.js?v=4';
-import * as ui from './ui.js?v=4';
+import * as ui from './ui.js?v=5';
 
 // Queue of documents awaiting confirmation: [{ id, text, sourceType, file, name, status, progress }]
 let pendingQueue = [];
@@ -264,6 +264,12 @@ async function handleConfirm() {
     const totalChars = readyItems.reduce((sum, item) => sum + (item.text?.length || 0), 0);
     const savedCount = readyItems.filter(i => pendingQueue.find(p => p.id === i.id)?.status === 'saved').length;
     ui.showSuccess(`Guardamos ${savedCount} documento${savedCount > 1 ? 's' : ''} (${totalChars} caracteres). Ya puedes continuar.`);
+
+    if (savedCount > 0) {
+      document.dispatchEvent(new CustomEvent('documents:ingested', {
+        detail: { count: savedCount },
+      }));
+    }
     
     // Remove saved items from queue
     pendingQueue = pendingQueue.filter(item => item.status !== 'saved');
