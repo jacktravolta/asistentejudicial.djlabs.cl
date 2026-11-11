@@ -10,6 +10,32 @@ import { apiUrl } from './api-base.js';
 // server is having a bad day" (anything else).
 
 /**
+ * The message the API sent, in either of the two shapes this API speaks.
+ *
+ * The REST routes answer `{"error": "texto"}` (a plain string) and the
+ * legacy routes answer `{"error": {"code": "...", "message": "..."}}` (an
+ * object). Reading only the object shape silently threw away the honest
+ * message of every REST route, leaving the panel with a generic sentence
+ * instead of what the server actually said.
+ *
+ * @param {unknown} payload
+ * @returns {string} The message, or '' when the payload carries none.
+ */
+function apiErrorMessage(payload) {
+  const error = payload && payload.error;
+
+  if (typeof error === 'string' && error.trim()) {
+    return error;
+  }
+
+  if (error && typeof error.message === 'string' && error.message.trim()) {
+    return error.message;
+  }
+
+  return '';
+}
+
+/**
  * Performs a JSON GET and returns the `data` payload.
  *
  * @param {string} url
@@ -43,11 +69,12 @@ export async function apiGet(url, options = {}) {
   }
 
   if (!payload || payload.success !== true) {
-    const message = payload && payload.error && payload.error.message
-      ? payload.error.message
-      : (options.fallbackMessage || 'No pudimos cargar la información en este momento. Inténtalo nuevamente.');
+    const message = apiErrorMessage(payload)
+      || (options.fallbackMessage || 'No pudimos cargar la información en este momento. Inténtalo nuevamente.');
     const error = new Error(message);
-    error.code = payload && payload.error ? payload.error.code : undefined;
+    error.code = payload && payload.error && typeof payload.error === 'object'
+      ? payload.error.code
+      : undefined;
     error.status = response.status;
     throw error;
   }
@@ -96,11 +123,12 @@ export async function apiPost(url, body, headers = {}, options = {}) {
   }
 
   if (!payload || payload.success !== true) {
-    const message = payload && payload.error && payload.error.message
-      ? payload.error.message
-      : (options.fallbackMessage || 'No pudimos completar tu solicitud en este momento. Inténtalo nuevamente.');
+    const message = apiErrorMessage(payload)
+      || (options.fallbackMessage || 'No pudimos completar tu solicitud en este momento. Inténtalo nuevamente.');
     const error = new Error(message);
-    error.code = payload && payload.error ? payload.error.code : undefined;
+    error.code = payload && payload.error && typeof payload.error === 'object'
+      ? payload.error.code
+      : undefined;
     error.status = response.status;
     throw error;
   }
