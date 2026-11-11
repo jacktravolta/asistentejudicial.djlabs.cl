@@ -123,12 +123,34 @@ ruta de acceso del dueño.
       notas; FK a `clients` con `ON DELETE SET NULL`), CRUD owner-scoped y
       heart-scoped, filtros `?cliente_id=` y `?proximo=`. Batería
       `tests/test_cases_owner.php`: **35/35 ALL PASS**. *Pendiente:* F2 (front).
-- [ ] **A4** — Clientes (API + migración) + **F3** (front).
+- [x] **A4** — Clientes (API + migración) + **F3** (front).
       *API:Hecho.* `feat(clients): let the owner manage their clients` (`56e1a55`).
       Migración `076_clients.sql`, CRUD owner-scoped y heart-scoped, búsqueda por
       nombre (`q`, con el `%` literal). Batería `tests/test_clients_owner.php`:
-      **29/29 ALL PASS**. *Pendiente:* F3 (front).
+      **29/29 ALL PASS**.
+      *Front:Hecho.* `feat(front): add the clients section to the panel` (`9b05e85`).
+      Sección "Clientes" (nav entre Leyes y Billetera, formulario de alta, buscador
+      por nombre, edición en línea, borrado con confirmación amable). Es **gratis**:
+      sin saldo, sin créditos, sin modal de costo. `apiPatch`/`apiDelete` agregados
+      al cliente JSON compartido. Arnés CDP **96/96** local (spot-check del
+      orquestador incluido). *Pendiente:* F2 (front).
 - [ ] **A5** — Documentos del dueño + bytes persistidos (API) + **F7** (front).
+      *API:Hecho.* `feat(documents): let the owner list and download their generated
+      documents` (`4fd6a9e`, pusheada a `feat/panel-modulos`). Los bytes generados
+      ya no se tiraban a la basura: `POST /documents/download` los persiste en
+      `LocalStorage` y guarda la clave en `stored_path`. Migración `078`
+      (`heart_id` NULL en legacy, `kind` ingested|generated, `bytes_size`, índice
+      owner+heart+kind+created_at) aplicada e idempotente. Rutas nuevas:
+      `GET /documents`, `GET /documents/{id}`, `GET /documents/{id}/download`
+      (binario) y `DELETE /documents/{id}`. Batería `tests/test_documents_owner.php`:
+      **31/31 ALL PASS** (+ regresiones conversations/clients/cases/legal_cache/
+      laws_search_live en verde).
+      **Fuga de privacidad corregida**: `Privacy\DeleteProcessor` borraba las filas
+      pero **nunca los archivos**; ahora borra los objetos locales también.
+      `AuthService` ya toleraba el archivo ausente (no se tocó).
+      Los escritores legacy (corazón laboral y `public/api/document-download.php`)
+      quedan intactos: sus filas conservan `heart_id = NULL` y **no aparecen** en
+      la lista del corazón judicial. *Pendiente:* F7 (front).
 - [ ] **A6** — Plantillas y generación de escritos (API) + **F5** (front).
 - [ ] **A7** — Analizador de documentos (API) + **F6** (front).
 - [ ] **V1** — Verificación final: arnés CDP en producción con todas las secciones y
@@ -215,12 +237,52 @@ node tests/cdp_panel_test.mjs --url https://asisjud.djlabs.cl
   owner+heart, validación de campos, fechas UTC). No es un framework: sin SQL ni tablas.
   Ojo: PDO corre con `EMULATE_PREPARES=false`, así que un placeholder con nombre no
   se puede repetir en la misma sentencia (usar `:nombre` / `:nombre2`).
+- **F3 — bug de producción: `apiPost` no mandaba la cookie de sesión.** El cliente JSON
+  compartido (`js/http.js`) mandaba `credentials: 'include'` en `apiGet` pero **no** en
+  `apiPost`. En la topología de 2 servidores (front `asisjud.djlabs.cl` ⇄ API
+  `api.djlabs.cl`, orígenes distintos) el navegador **omitía la cookie httpOnly** y todo
+  POST autenticado respondía 401. Medido en Chrome contra `api.djlabs.cl`: POST simple
+  → 401, POST con credencial → 200. El flujo afectado era **`POST /payments/orders`**
+  (`js/topup.js` → "Comprar créditos"): la recarga estaba rota en producción.
+  El servidor nunca fue el culpable: `auth.cookie_samesite = None` y
+  `cors.origins` ya incluían `https://asisjud.djlabs.cl`.
+  Corregido en `9b05e85` (una línea + comentario). No hizo falta tocar los 8
+  importadores: Cloudflare sirve los assets con `Cache-Control: public, max-age=0,
+  must-revalidate` + ETag, así que el navegador **siempre revalida** y tras el deploy
+  todos los importadores (`http.js`, `http.js?v=1`, `http.js?v=2`) reciben el fix.
+  Lo que sí queda pendiente: `http.js` se importa con tres especificadores distintos
+  (tres instancias del módulo); es inocuo hoy (el módulo no tiene estado compartido),
+  pero conviene consolidar en un corte futuro.
+- **Operación: el túnel de `api.djlabs.cl` sirve el puerto 8098** (`originService=
+  http://127.0.0.1:8098`), no el 8086 de pruebas. Si el servidor PHP no está levantado,
+  producción responde 502 aunque el código local esté perfecto: hay que revisar
+  `php -S 127.0.0.1:8098 -t public` primero que nada cuando la API "se cae".
 
 
 ## Próximo paso
 
-A1 + F1 (conversaciones): es el corte más barato y desbloquea el patrón de "listar +
-abrir en el chat" que las demás secciones copian.
+Cerrado hasta acá: A1 (+F1), A2, A2b, A3 (API), A4 (API + F3), A5 (API).
+
+Lo que sigue, en orden de dependencia:
+
+1. **F2 (front, Causas)** — reusa el módulo de clientes: la causa se asocia a un cliente
+   con el filtro `?cliente_id=` que la API ya soporta. Es el corte más barato que
+   queda y cierra el CRUD de clientes+causas que el requerimiento pide.
+2. **F7 (front, Documentos generados)** — ya puede hacerse: A5 dejó la API lista
+   (`GET /documents`, `GET /documents/{id}/download` binario). El front necesita un
+   helper de descarga binaria (blob con `credentials: 'include'`) porque `http.js`
+   solo devuelve JSON.
+3. **A6 (API, escritos)** — plantillas (`resources/templates/*.json` + `TemplateRenderer`)
+   y generación con `DocumentExporter` (PDF real con pie legal). Costo 5 créditos vía
+   filas de `tariffs` con `heart_id = 'default'`. → **F5** (front).
+4. **A7 (API, analizador)** — `BrainAdapterFactory` con `response_format=json` (patrón
+   ATS), 4 créditos, sin inventar texto. → **F6** (front).
+5. **V1** — arnés CDP completo en local y en `https://asisjud.djlabs.cl`, entregables
+   del requerimiento (README con `header: corazon`, rotador, BCN on-demand, lista de
+   features reutilizadas) y reintento del espejo Engram.
+
+F5 y F6 comparten el modal de costo ("Esta acción costará X créditos. Tienes Y") y el
+CTA "Comprar créditos" (la billetera ya existe como destino).
 
 ---
 
