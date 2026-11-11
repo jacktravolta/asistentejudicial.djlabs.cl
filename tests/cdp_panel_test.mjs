@@ -609,6 +609,7 @@ async function enviarUnaConsulta(cliente) {
     return;
   }
   check(true, 'aparece una burbuja del asistente con respuesta no vacía', `${respuestaUI.visibleText.slice(0, 120)}`);
+  await captura(cliente, 'consultas-chat');
 }
 
 async function comprobarDocumentos(cliente) {
@@ -698,6 +699,7 @@ async function comprobarDocumentos(cliente) {
     return;
   }
   check(true, 'la biblioteca muestra exactamente una fila con el título del archivo', fila.title);
+  await captura(cliente, 'documentos-biblioteca');
 
   const sinRecarga = await cliente.evaluar(`
     return {

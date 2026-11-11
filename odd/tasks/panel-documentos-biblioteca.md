@@ -140,7 +140,15 @@ un panel lleno de botones 404.
       `EMAIL_REVERIFY_REQUIRED`) y limpiar las cookies del navegador (`Network
       .clearBrowserCookies`), porque la sesión httpOnly de una corrida anterior se
       heredaba y las comprobaciones medían la cuenta equivocada.
-- [ ] **T7** — Commit + push a `main` + verificación en `https://asisjud.djlabs.cl`.
+- [x] **T7** — Commit + push a `main` + verificación en `https://asisjud.djlabs.cl`.
+      *Evidencia:* push fast-forward `0eb4cde..d451d76` a `origin/main` (Cloudflare Pages
+      reconstruye desde `main`); el deploy se confirmó esperando el `index.html` servido
+      (`js/app.js?v=10` y `data-panel="chat"` presentes) y el arnés CDP corrió contra
+      **`https://asisjud.djlabs.cl` → 29 aserciones, 29 pasan, 0 fallan**, con la API real
+      en `https://api.djlabs.cl`: el chat responde con `heart="default"`, la biblioteca
+      muestra el documento recién subido y sus acciones funcionan. Capturas de producción
+      en `Consultas` (chat con respuesta) y en `Documentos` (fila con título, tipo, fecha,
+      tamaño y los tres botones).
 - [x] **T8** — El chat nombra el heart: resolver el heart de la instalación y enviarlo en el
       chat, la biblioteca y la ingesta. *Evidencia:* `js/heart.js` resuelve el heart
       (`localStorage.heart_id` → `GET /ui/theme` → `'default'`), `ensureChat()` lo pasa en
@@ -174,8 +182,16 @@ node tests/cdp_panel_test.mjs --url https://asisjud.djlabs.cl
 
 ## Próximo paso
 
-T8 cerrado (el chat nombra el heart). Sigue T6 (arnés CDP local) y T7 (commit + push de la
-rama de feature, sin tocar `main` directamente).
+Cerrado: entregado y verificado en producción (29/29 en local y 29/29 en el dominio).
+
+Pendiente para otros cortes (no entra aquí):
+- `menu-burger-contacto-heart.md` → T5 (heart del aviso al administrador), T6 (beacon de
+  Cloudflare Analytics en la CSP) y T7 (verificación final de esa batería).
+- Módulos del requerimiento que siguen sin backend propio: **Mis conversaciones** (las
+  tablas `conversations`/`messages` existen, pero no hay ruta de listado para el dueño:
+  solo existe `GET /admin/conversations`), **Mis causas y plazos** y **Mis clientes** (no
+  existen tablas ni rutas; sí hay `BcnClient` y `TemplateRenderer` reutilizables en el
+  backend, sin exponer por HTTP).
 
 ---
 
