@@ -77,14 +77,17 @@ ruta de acceso del dueño.
       `BcnClient`/`SourceChain`/`legal_cache`, `TemplateRenderer`/`Generator`/`DocumentExporter`,
       almacenamiento de bytes, ruta de LLM con el rotador, convenciones de router y
       migraciones) y sobre el front (secciones faltantes, patrón de módulos).
-- [ ] **A1** — Conversaciones del dueño (API) + **F1** (front).
-      *API:Hecho.* `feat(conversations): expose the owner's conversation history` (`d383622`)
+- [x] **A1** — Conversaciones del dueño (API) + **F1** (front).
+      *API:* `feat(conversations): expose the owner's conversation history` (`d383622`)
       + `fix(conversations): return the newest turns of a long thread` (`33d644e`).
       `GET /conversations` y `GET /conversations/{id}/messages`, owner-scoped
       (`user_id`) + aislamiento por corazón (`heart_id = :heart OR heart_id IS NULL`),
       paginación acotada, 404 idéntico para "no es tuya" / "otro corazón" / "no existe",
-      401 sin sesión. Batería `tests/test_conversations_owner.php`: **17/17 ALL PASS**.
-      *Pendiente:* F1 (panel del front).
+      401 sin sesión. Batería `tests/test_conversations_owner.php`: **18/18 ALL PASS**.
+      *Front:* `feat(front): add the conversations section to the panel` (`9173b8b`).
+      Sección "Conversaciones" (listar, ver la transcripción, abrir en el chat
+      continuando esa conversación), arnés CDP **42/42** en local y **42/42** en
+      `https://asisjud.djlabs.cl`. Entregado en `main`.
 - [ ] **A2** — Búsqueda de leyes (API) + **F4** (front).
       *API:Hecho.* `feat(laws): search a law by number on demand from BCN` (`2df2eeb`) +
       `fix(laws): tell an outage apart from a missing law` (`fcb9d4c`).
@@ -94,15 +97,20 @@ ruta de acceso del dueño.
       Baterías `tests/test_laws_search.php` (hermética) y
       `tests/test_laws_search_live.php` (BCN real): **12/12 ALL PASS**.
       *Pendiente:* F4 (panel del front).
-- [ ] **A2b** — El caché legal perdía artículos repetidos (API).
-      *En curso.* `LegalCache::put()` deduplicaba por número de artículo: en una
-      ley refundida (cuerpo + Disposiciones Finales) la última aparición pisaba
-      a la primera. **8 de las 10 leyes cacheadas estaban dañadas**: la 19.628
-      guardaba el texto de las disposiciones finales donde va el artículo 1
-      principal; la 18.883 perdía 17 artículos. El chat ya citaba ese texto
-      equivocado. Corrección: columna `article_occurrence` + clave única con la
-      ocurrencia, y reparación de las filas dañadas (expirarlas para que la
-      cadena las vuelva a escribir completas).
+- [x] **A2b** — El caché legal perdía artículos repetidos (API).
+      `LegalCache::put()` deduplicaba por número de artículo: en una ley refundida
+      (cuerpo + Disposiciones Finales) la última aparición pisaba a la primera.
+      **8 de las 10 leyes cacheadas estaban dañadas**: la 19.628 guardaba el texto
+      de las disposiciones finales donde va el artículo 1 principal; la 18.883
+      perdía 17 artículos. El chat ya citaba ese texto equivocado.
+      Corrección: `fix(legal): keep every article occurrence in the legal cache`
+      (`7723f7a`) — columna `article_occurrence`, clave única con la ocurrencia y
+      reparación por expiración de las filas dañadas (la cadena las reescribe).
+      Migración `075` aplicada y verificada idempotente; **72 artículos recuperados**
+      y las 10 leyes cacheadas quedan con `filas == max_orden` (0 colapsos).
+      Batería `tests/test_legal_cache_occurrence.php`: **9/9 ALL PASS**.
+      Verificado E2E: `GET /laws/search?numero=19628&articulo=1` devuelve ahora el
+      artículo 1 **principal**, no el de las disposiciones finales.
 - [ ] **A3** — Causas y plazos (API + migración) + **F2** (front).
 - [ ] **A4** — Clientes (API + migración) + **F3** (front).
 - [ ] **A5** — Documentos del dueño + bytes persistidos (API) + **F7** (front).
@@ -146,9 +154,13 @@ node tests/cdp_panel_test.mjs --url https://asisjud.djlabs.cl
 
 | Batería | Qué prueba | Estado |
 | --- | --- | --- |
-| `tests/test_conversations_owner.php` | A1: owner + corazón + 401 + 404 + tope de turnos | **17/17 ALL PASS** |
-| `tests/test_laws_search.php` | A2: validación y 401 (hermética, sin red) | pendiente |
-| `tests/test_laws_search_live.php` | A2: BCN real, caché TTL, artículo único, 404 (requiere red) | pendiente |
+| `tests/test_conversations_owner.php` | A1: owner + corazón + 401 + 404 + tope de turnos | **18/18 ALL PASS** |
+| `tests/test_laws_search.php` | A2: validación y 401 (hermética, sin red) | **4/4 ALL PASS** |
+| `tests/test_laws_search_live.php` | A2: BCN real, caché TTL, artículo único, 404 y 503 | **12/12 ALL PASS** |
+| `tests/test_legal_cache_occurrence.php` | A2b: cada ocurrencia de artículo conserva su texto | **9/9 ALL PASS** |
+| `tests/test_clients_owner.php` | A4: owner + corazón + validación + saldo intacto | en curso |
+| `tests/test_cases_owner.php` | A3: owner + corazón + filtro por cliente + saldo intacto | en curso |
+| `tests/cdp_panel_test.mjs` | Front: sesión real, secciones, chat con heart, biblioteca | **42/42** local y producción |
 
 ## Notas de implementación
 
@@ -157,9 +169,26 @@ node tests/cdp_panel_test.mjs --url https://asisjud.djlabs.cl
   OTRO corazón nunca aparecen. El tope de 200 mensajes devuelve los turnos MÁS NUEVOS
   (igual que `ChatService::loadHistory`), no el comienzo del hilo.
 - **A1** — Migración `074_conversations_owner_activity.sql` (archivo, no aplicada): índice
-  `(user_id, created_at)` para el listado del dueño. `cases`/`clients` pasan a 075/076.
+  `(user_id, created_at)` para el listado del dueño. **La 075 la tomó el arreglo del
+  caché legal (A2b)**, así que clientes = `076` y causas = `077`.
 - **A2** — El TTL de la caché ya existe (`legal_cache.expires_at`, `legal.cache_ttl_days`
   = 30 días por defecto): primero se sirve la caché vigente y solo después se va a la red.
+- **A2b** — `api.djlabs.cl` es ESTE working copy a través de un túnel: cada commit sirve
+  tráfico de producción al instante, así que hay que pushear la rama apenas se commitea
+  (el repositorio tiene que contar lo que está sirviendo).
+- **A2b** — Una ley refundida puede repetir números de artículo (cuerpo + disposiciones
+  finales). El texto legal se guarda por **ocurrencia**, no solo por número: el artículo
+  "1" principal y el "1" de las disposiciones finales son textos distintos y ambos se
+  conservan. `LawDocument::article('1')` responde con la primera ocurrencia (el cuerpo).
+- **M7 / costos** — Los `tariffs` reales NO coinciden con la tabla del requerimiento
+  (global: `chat_simple` 8, `chat_doc` 15, `draft_prepare` 180, `doc_analysis_standard`
+  50). `TariffService::current($op, $heart)` prioriza la fila **por corazón** sobre la
+  global, así que los costos del requerimiento (1, 3, 5, 4) se aplican creando filas
+  con `heart_id = 'default'` — sin tocar el precio de los demás corazones.
+- **Módulo 5 / pjud.cl** — La consulta a Poder Judicial NO se automatiza en este corte:
+  el requerimiento lo permite ("si no se puede automatizar 100%, permitir carga manual").
+  La tabla `cases` guarda `fuente_estado` ('manual' | 'pjud') y los campos que pjud
+  devolvería, para que la integración sea honesta cuando exista.
 
 
 ## Próximo paso
