@@ -553,6 +553,8 @@ async function submitTopup() {
       offset = 0;
       await loadAll();
       celebrateBalance(prevBalance, lastDisplayedBalance);
+      // Header del SPA: el saldo cambió — refrescar el pill en tiempo real.
+      window.dispatchEvent(new CustomEvent('aj:balance-changed'));
       setTimeout(() => {
         showVoucher(order.order_id, { fromStorage: true, noticeOnError: true, reveal: true });
       }, 2000);
@@ -612,6 +614,8 @@ async function showVoucher(orderId, options = {}) {
       if (typeof options.celebrate === 'number') {
         celebrateBalance(options.celebrate, lastDisplayedBalance);
       }
+      // Header del SPA: el saldo cambió tras el pago — refrescar en tiempo real.
+      window.dispatchEvent(new CustomEvent('aj:balance-changed'));
 
       return;
     }
@@ -911,6 +915,12 @@ async function loadAll() {
     const prevBalance = lastDisplayedBalance;
 
     renderBalance(balance);
+    // Header del SPA: si el saldo cambió, que se refleje en el pill del
+    // header en tiempo real (con su animación de cambio de valor).
+    const beforeWalletBalance = lastDisplayedBalance;
+    if (beforeWalletBalance !== null && beforeWalletBalance !== lastDisplayedBalance) {
+      window.dispatchEvent(new CustomEvent('aj:balance-changed'));
+    }
     renderMovements(movements);
     renderTariffs(tariffs.tariffs);
 

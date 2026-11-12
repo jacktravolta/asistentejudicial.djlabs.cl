@@ -1,0 +1,247 @@
+Exacto, esa es la regla madre de todo el proyecto. La dejo como **Regla #1** para que no se le olvide en ningún módulo.
+
+Aquí va el prompt **FINAL DEFINITIVO** con eso ya integrado en todos lados:
+
+---
+
+### PROMPT FINAL PARA EL DESARROLLADOR - ASISTENTE JUDICIAL CHILE - VERSIÓN DEFINITIVA
+
+**0. REGLA MADRE - LEER PRIMERO, OBLIGATORIA PARA TODO EL PROYECTO**
+
+> **REUTILIZAR, NO REINVENTAR. RESPETAR LOS FLUJOS ESTABLECIDOS.**
+>
+> Este proyecto YA EXISTE y YA FUNCIONA. No es un proyecto desde cero.
+>
+> **PROHIBIDO reinventar funcionalidad que ya existe.**
+> **PROHIBIDO crear sistemas paralelos.**
+> **PROHIBIDO cambiar flujos que ya están establecidos sin avisar y justificar.**
+>
+> Antes de crear CUALQUIER cosa nueva, debes:
+> 1. Revisar qué ya existe en `/home/test/test/api-independent` y en `/home/test/test/asistentejudicial.djlabs.cl`.
+> 2. Revisar cómo funciona hoy ese flujo, qué función lo hace, qué tabla usa, qué header usa.
+> 3. Reutilizar esa función / tabla / endpoint / flujo tal cual.
+> 4. Solo extenderlo si falta algo, sin duplicarlo.
+> 5. Si crees que algo existente está mal y hay que cambiarlo, primero documentarlo y proponer el cambio, NO cambiarlo en silencio.
+>
+> Si ya existe una función para hacerlo, **ÚSALA**. Si ya existe un flujo, **SÍGUELO**. Si ya existe una tabla, **NO CREES OTRA IGUAL**.
+>
+> Cualquier funcionalidad duplicada será considerada un error y deberá ser eliminada.
+
+**Ejemplos concretos de esta regla:**
+- Créditos: Ya existen, se manejan por `header = corazon`. NO crear otro sistema.
+- Consulta BCN: Ya existe función que consulta por número de ley. NO crear otra, reutilizarla.
+- Login / Registro: Ya existen. NO recrearlos.
+- Cobro LLM: Ya existe. NO crear otro cálculo paralelo.
+- Rotador LLM: Si ya existe algo parecido, reutilizarlo y extenderlo, no crear uno desde cero sin revisar.
+- Panel Central: Ya existe. Extenderlo, no hacer un panel nuevo.
+
+**1. CONTEXTO**
+
+Asistente Judicial Completo para Chile, sobre arquitectura que ya existe y funciona.
+
+Objetivo: Abogado, procurador o persona natural pueda consultar legislación chilena vigente, hacer preguntas legales con fundamento, redactar escritos, analizar documentos y hacer seguimiento de causas y plazos, desde un panel central.
+
+Todo confiable, trazable y con citación de fuentes oficiales. Prohibido inventar artículos.
+
+**2. ARQUITECTURA ACTUAL - NO REINVENTAR**
+
+**Backend / API independiente:**
+Ruta: `/home/test/test/api-independent`
+Lenguaje: **PHP**
+- API central.
+- Maneja toda la lógica por handlers.
+- Maneja autenticación, usuarios, roles y permisos.
+- Maneja cobros por créditos LLM.
+- Expone endpoints REST en JSON.
+
+**Frontend:**
+Ruta / Dominio: `/home/test/test/asistentejudicial.djlabs.cl`
+- Ya tiene: Login, Registro, Panel Central.
+- Solo consume la API, no tiene lógica de negocio.
+- Mantener mismo login/registro y diseño, solo extenderlo.
+
+**Función ya existente que DEBE mantenerse:**
+- Función que consulta BCN - Biblioteca del Congreso Nacional de Chile **por número de ley** y trae la data.
+- Es la fuente de verdad. Reutilizarla, no crear otra.
+
+**3. DEFINICIONES CLAVE - INNEGOCIABLES**
+
+1.  **Cobro: SOLO POR CRÉDITOS.** No hay suscripción mensual.
+2.  **Jurisdicción: SOLO CHILE.**
+3.  **API: PHP.** Seguir estructura actual de `/home/test/test/api-independent`.
+4.  **CRÉDITOS: YA EXISTEN.** Se manejan por `header = corazon`. No crear sistema nuevo. Ver punto 7.
+5.  **MODELO LLM: LO DEFINE UN ROTADOR.** No casarse con un solo modelo. Ver punto 8.
+6.  **BCN: ON-DEMAND POR NÚMERO DE LEY.** No bajar la data completa. Se consulta conforme se vaya necesitando. Ver punto 5.
+7.  **REUTILIZAR TODO LO EXISTENTE.** Ver Regla Madre punto 0.
+
+**4. MÓDULOS A CONSTRUIR**
+
+**Módulo 1: Chat Legal Inteligente (CORE)**
+- Chat especializado en derecho chileno.
+- Flujo obligatorio, respetando flujos actuales: `Pregunta -> Detectar ley(es) necesaria(s) -> Reutilizar función BCN existente por número de ley (on-demand) -> Generación con LLM vía rotador existente -> Respuesta con citación`.
+- Respuesta debe incluir: Respuesta clara, Artículos exactos (Ley, Nº, Artículo, inciso), Link a BCN, Fecha de vigencia / última modificación, Aviso si la norma está derogada o modificada.
+- Memoria por `conversation_id` (si ya existe sistema de conversaciones, reutilizarlo).
+- Selector de área: Civil, Penal, Laboral, Familia, Comercial, Tributario, Administrativo, Constitucional, Consumidor, Policía Local.
+- Selector de tono: Para abogado (técnico) / Para cliente (simple).
+
+**Módulo 2: Buscador de Leyes BCN - ON DEMAND**
+- **PROHIBIDO bajar / indexar / descargar toda la BCN.**
+- **PROHIBIDO crear una copia completa de todas las leyes en BD.**
+- **OBLIGATORIO reutilizar la función actual** que consulta por número de ley.
+- Flujo: Usuario busca por Nº de ley / tema -> Sistema identifica Nº de ley -> Reutiliza función BCN por ese Nº -> Muestra texto vigente -> Si ya se consultó antes, puede usar caché puntual de ESA ley, pero no precargar todo.
+- Búsqueda por: Nº de ley (prioridad), Nº de artículo, palabra clave / tema (para identificar el Nº de ley y luego consultar).
+- Mostrar texto vigente, historial, fecha de última actualización que entregue BCN.
+- Si BCN falla, avisar y reintentar, no inventar texto.
+- Caché permitido SOLO como caché puntual y temporal de leyes ya consultadas, con TTL y fecha de consulta, para no saturar BCN. Nunca como descarga masiva.
+
+**Módulo 3: Redactor de Escritos y Documentos**
+- Plantillas chilenas: Demanda civil, Querella, Recurso de protección, Recurso de apelación, Contrato de arriendo, Contrato de trabajo, Mandato judicial, Carta de despido / aviso, Contestación de demanda, Escrito téngase presente, Solicitud de audiencia.
+- Flujo, respetando flujos actuales: Formulario (partes, RUT, hechos, petitorio) -> Detectar leyes necesarias -> Reutilizar función BCN por Nº de ley on-demand -> Redacción con LLM vía rotador + plantilla -> Editor -> Exportar DOCX / PDF.
+- Si ya existe un generador de documentos / exportador en el proyecto, reutilizarlo.
+- Incluir pie con fuentes legales usadas y costo en créditos.
+- Librería PHP: Si ya existe una librería para DOCX/PDF en el proyecto, usar esa. Si no, `PhpOffice/PhpWord` y `Dompdf` o `TCPDF` (elegir una y justificar).
+
+**Módulo 4: Analizador de Documentos**
+- Subir PDF / DOCX / JPG de demanda, sentencia, contrato.
+- Extraer: partes, tribunal, rol, fechas, plazos, pretensiones, argumentos.
+- Detectar: plazos vencidos, artículos mal citados, errores formales.
+- Permitir preguntas sobre el documento subido.
+- Límite: 10MB, solo PDF/DOCX/JPG/PNG.
+- Si ya existe lógica de subida de archivos, reutilizarla.
+
+**Módulo 5: Seguimiento de Causas y Plazos**
+- Usuario ingresa ROL / RIT / RUC y tribunal.
+- Consultar Poder Judicial (pjud.cl) y mostrar estado, última resolución, próxima audiencia.
+- Si no se puede automatizar 100%, permitir carga manual + recordatorio.
+- Calendario de plazos con alertas en panel y por email.
+- Lista de causas por cliente.
+- Si ya existe un sistema de notificaciones / emails, reutilizarlo.
+
+**Módulo 6: Panel Central (Extender el que ya existe)**
+- **PROHIBIDO crear un panel nuevo.**
+- Mantener login / registro / panel actual y extenderlo.
+- Agregar: Mis conversaciones, Mis documentos generados, Mis causas y plazos, Mis clientes, Mis créditos / Historial de consumo / Comprar créditos, Configuración de perfil.
+- Respetar el diseño, componentes y flujos de navegación actuales.
+
+**Módulo 7: Créditos - YA EXISTE, SE MANEJA POR HEADER `corazon`**
+
+> **NO CREAR TABLA NUEVA DE CRÉDITOS. NO CREAR SISTEMA NUEVO DE COBROS.**
+> **REUTILIZAR EL FLUJO ESTABLECIDO.**
+> El sistema ya existe y funciona por:
+> ```
+> header = corazon
+> ```
+> Ese header identifica a `asistentejudicial` dentro de `api-independent` y controla el descuento de créditos.
+>
+> Tu trabajo:
+> 1. Revisar cómo funciona hoy con `header: corazon`. Dónde descuenta, dónde consulta saldo, cómo calcula costo por tokens.
+> 2. Mantener exactamente esa misma lógica, misma tabla y misma estructura. No duplicar.
+> 3. Conectar TODOS los nuevos módulos a ESE mismo sistema. Cada llamada a LLM debe pasar con `header: corazon` y por el flujo actual.
+> 4. Saldo e historial en frontend deben venir de la API actual con ese header, no de saldo paralelo.
+> 5. Costos por acción (sobre lógica actual):
+>    - Pregunta simple chat: 1 crédito
+>    - Pregunta con análisis profundo: 3 créditos
+>    - Redactar escrito: 5 créditos
+>    - Analizar documento: 4 créditos
+>    - Buscar ley (sin LLM): 0 créditos / gratis
+> 6. Antes de ejecutar acción con costo, mostrar modal: "Esta acción costará X créditos. Tienes Y. ¿Continuar?"
+> 7. Si créditos = 0, bloquear y mostrar "Comprar créditos".
+> 8. Panel Admin: ver consumo, usuarios, créditos vendidos, ajustar precios, usando datos del sistema actual.
+> 9. Pago: Dejar preparado para Flow / MercadoPago / Transbank (Chile). En esta fase, compra manual con comprobante + activación por admin si no se integra pasarela aún. Si ya existe una integración de pago, reutilizarla. Indicar cuál vas a integrar.
+> 10. Documentar en README cómo funciona hoy `header: corazon`.
+>
+> **PROHIBIDO:** crear `credits_transactions` nueva, otro sistema de cobros, o dos saldos distintos. Reutilizar endpoints existentes.
+
+**Ejemplo de llamada que debe mantener el sistema:**
+```
+POST /api/chat/send
+Headers:
+  corazon: asistentejudicial
+  Authorization: Bearer {token}
+Body: { "message": "...", "area": "civil" }
+Response: { "success": true, "data": {...}, "credits_used": X, "credits_remaining": Y }
+```
+
+**5. BASE DE DATOS - PHP + MySQL**
+
+Crear / extender SOLO lo que falta, sin tocar sistema de créditos existente, sin duplicar tablas que ya existen:
+- Revisar primero qué tablas ya existen y reutilizarlas.
+- Solo crear si NO existe:
+  - `conversations, messages, message_sources` (si ya existen, reutilizar)
+  - `laws_cache_puntual` SOLO para caché on-demand de leyes ya consultadas: (numero_ley, texto, fecha_consulta, url_bcn, ttl) - NO es una copia completa de BCN
+  - `documents (tipo, contenido, usuario_id, estado, creditos_usados)`
+  - `cases (rol, rit, ruc, tribunal, cliente_id, estado, proxima_audiencia)`
+  - `clients`
+  - `uploaded_files`
+
+Migraciones en `/api-independent/migrations/`. No modificar tabla de créditos existente sin avisar.
+
+**6. ENDPOINTS API PHP**
+
+Mantener actuales. Crear solo los que falten, reutilizando los que ya existen:
+```
+POST /api/auth/login -> REUTILIZAR, NO RECREAR
+POST /api/auth/register -> REUTILIZAR, NO RECREAR
+GET  /api/me/credits -> sistema actual con header corazon
+POST /api/chat/send
+GET  /api/chat/history
+GET  /api/laws/search?q=&ley=&articulo= -> debe resolver Nº de ley y reutilizar función BCN on-demand
+POST /api/documents/generate
+GET  /api/documents/list
+POST /api/documents/analyze
+POST /api/cases/add
+GET  /api/cases/list
+GET  /api/admin/credits-stats
+POST /api/credits/buy
+```
+Todos con token + `header: corazon`. Respuesta siempre JSON con `success, data, credits_used, credits_remaining, error`.
+
+**7. SYSTEM PROMPT OBLIGATORIO PARA EL LLM**
+
+> Eres un asistente judicial experto en legislación chilena vigente, solo Chile. Solo respondes con base en la información recuperada de la BCN que se te entrega en el contexto. Si no tienes la norma en el contexto, di "No tengo esa norma en mi base actualizada" y no inventes artículos. Siempre cita Ley, Nº de artículo e inciso y fuente BCN. Indica fecha de vigencia. Nunca des asesoría legal definitiva, das orientación jurídica y recomiendas validar con abogado. Usa formato judicial chileno para escritos. Si preguntan por otro país, responde que solo manejas Chile.
+
+**8. ROTADOR DE MODELOS LLM - MUY IMPORTANTE**
+
+> **El modelo da lo mismo, lo define un rotador conforme a disponibilidad.**
+>
+> NO hardcodear un solo modelo.
+> Primero revisar si ya existe un rotador / sistema de fallback en el proyecto. Si existe, reutilizarlo y extenderlo. Si no existe, construir un `LLM Rotator` en PHP en `api-independent` que:
+> 1. Tenga lista de proveedores / modelos configurables en `.env` (ej: OpenAI, Anthropic, Gemini, Groq, etc).
+> 2. Elija el modelo según: disponibilidad (si uno cae, pasa al siguiente), latencia, costo, y cuota.
+> 3. Haga fallback automático: si el modelo 1 falla / timeout / 429, reintenta con el modelo 2 sin que el usuario lo note.
+> 4. Registre en logs qué modelo se usó en cada llamada, tokens y costo.
+> 5. Permita cambiar el orden de prioridad desde config / panel admin sin tocar código.
+> 6. El descuento de créditos debe ser independiente del modelo usado, se calcula por tokens / acción, no por proveedor, y debe pasar por el flujo actual con `header: corazon`.
+> 7. Toda llamada a LLM debe pasar por este rotador, no llamar directo a un proveedor desde los módulos.
+
+**9. SEGURIDAD Y CALIDAD**
+
+- Validar que las citas existan realmente en BCN, no alucinar.
+- Rate limiting por usuario en PHP. Si ya existe, reutilizarlo.
+- Sanitizar uploads, validar MIME. Si ya existe lógica, reutilizarla.
+- Passwords con `password_hash()`, nunca texto plano.
+- Variables de entorno en `.env` para API Keys LLM, DB, etc. Nunca hardcodear.
+- Logs de auditoría. Si ya existe sistema de logs, usarlo.
+- Tests básicos: login, chat con citación, generación de documento, descuento de créditos vía `header: corazon`, fallback del rotador, consulta BCN por Nº de ley.
+
+**10. ENTREGABLES**
+
+1. API actualizada en `/home/test/test/api-independent` con nuevos endpoints documentados. Incluir documento de "Qué se reutilizó y qué se creó nuevo".
+2. Frontend actualizado en `asistentejudicial.djlabs.cl` con nuevos módulos integrados al panel existente.
+3. Migraciones SQL (sin duplicar sistema de créditos, sin descarga masiva de BCN, sin duplicar tablas existentes).
+4. Archivo `.env.example` con variables del rotador, BCN, DB.
+5. README con cómo correr en local y producción (PHP + MySQL) + explicación de `header: corazon` + explicación del rotador + explicación de consulta BCN on-demand + lista de funcionalidades reutilizadas.
+6. Loom corto mostrando flujo completo respetando flujos actuales: comprar créditos -> preguntar -> redactar escrito -> ver descuento de créditos.
+
+**11. ANTES DE EMPEZAR, RESPONDE:**
+
+- ¿Qué funcionalidades / funciones / endpoints ya existentes encontraste y vas a reutilizar? Haz una lista.
+- ¿Cómo vas a implementar el rotador en PHP? ¿Qué orden de prioridad propones? ¿Ya existía algo similar?
+- ¿Cómo vas a resolver el Nº de ley desde una pregunta en lenguaje natural para luego reutilizar la función BCN on-demand?
+- ¿Qué pasarela de pago chilena vas a dejar lista para comprar créditos? ¿Ya existía una?
+- ¿Confirmas que entendiste que NO debes crear sistema nuevo de créditos (todo por `header: corazon`), NO debes bajar toda la BCN, NO debes casarte con un solo modelo LLM, y NO debes reinventar funcionalidad que ya existe?
+- Estimación en tiempo y costo por módulo.
+
+---
+
+¿Quieres que te lo guarde ahora sí como archivo `.md` descargable para mandárselo directo?
