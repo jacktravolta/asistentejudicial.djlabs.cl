@@ -58,6 +58,33 @@ export function useConversation(id) {
   }
 }
 
+// ---- Auto-read (TTS) preference -------------------------------------------
+// Auto-read speaks every assistant answer with the FREE local speechSynthesis
+// path (never the paid /tts flow). The preference lives in localStorage under
+// 'aj:tts_auto', mirroring the sounds toggle: ABSENT key means enabled
+// (default ON), '1' enables, '0' disables.
+const TTS_AUTO_STORAGE_KEY = 'aj:tts_auto';
+
+/**
+ * @returns {boolean} True unless the user explicitly turned auto-read off.
+ */
+export function voiceAutoEnabled() {
+  try {
+    return localStorage.getItem(TTS_AUTO_STORAGE_KEY) !== '0';
+  } catch (_) {
+    return true;
+  }
+}
+
+/** Persist the auto-read opt-in/out toggle from the Perfil panel. */
+export function setVoiceAutoEnabled(enabled) {
+  try {
+    localStorage.setItem(TTS_AUTO_STORAGE_KEY, enabled ? '1' : '0');
+  } catch (_) {
+    // Storage blocked (private mode): the preference just won't persist.
+  }
+}
+
 /**
  * @param {string} tag
  * @param {Record<string, string>} attrs
@@ -1992,8 +2019,15 @@ export function mountChat(container, options = {}) {
     return row;
   }
 
+  // Only http(s) absolute URLs or same-site root-relative paths become
+  // anchors — anything else (javascript:, data:, …) renders as plain text,
+  // same discipline as the markdown renderer above.
+  function isSafeSourceUrl(url) {
+    return typeof url === 'string' && /^(https?:\/\/|\/)/i.test(url.trim());
+  }
+
   /**
-   * @param {Array<{ title?: string|null, scope?: string }>} sources
+   * @param {Array<{ title?: string|null, scope?: string, url?: string|null }>} sources
    */
   function renderSources(sources) {
     if (!Array.isArray(sources) || sources.length === 0) {
@@ -2017,7 +2051,24 @@ export function mountChat(container, options = {}) {
     for (const source of sources) {
       const line = el('p', { class: 'truncate text-[11px] text-slate-500' });
       const name = source.title || 'Documento sin título';
-      line.textContent = source.scope === 'user' ? `• ${name} (tus documentos)` : `• ${name}`;
+      // Law (and future precedent) sources carry an official URL. API data
+      // NEVER reaches innerHTML: the label goes through textContent only.
+      // Unknown scopes keep the plain label — a new scope can't crash this.
+      const label = (source.scope === 'precedent' ? 'Precedente — ' : '')
+        + name
+        + (source.scope === 'user' ? ' (tus documentos)' : '');
+
+      if (isSafeSourceUrl(source.url)) {
+        const link = document.createElement('a');
+        link.href = source.url.trim();
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.className = 'underline decoration-dotted';
+        link.textContent = label;
+        line.append(link);
+      } else {
+        line.textContent = label;
+      }
       sourceList.append(line);
     }
 
@@ -2100,7 +2151,8 @@ export function mountChat(container, options = {}) {
         }
       }
 
-      addMessage('assistant', String(data.answer ?? ''), {
+      const answerText = String(data.answer ?? '');
+      addMessage('assistant', answerText, {
         sourceIds: ragSourceIds,
         informeHtml: typeof data.informe_html === 'string' ? data.informe_html : '',
       });
@@ -2112,6 +2164,15 @@ export function mountChat(container, options = {}) {
       // errors/catch above must stay silent.
       if (soundsEnabled()) {
         playChime('chat');
+      }
+
+      // Auto-read (opt-in from Perfil, default ON): speak the SAME answer
+      // text the manual listen button would speak, via the FREE local
+      // speechSynthesis path — the paid /tts flow stays untouched. The
+      // floating #tts-stop-btn calls speechSynthesis.cancel(), so it also
+      // stops this auto-read.
+      if (voiceAutoEnabled() && 'speechSynthesis' in window) {
+        speakText(cleanForSpeech(answerText));
       }
     } catch (networkError) {
       typingRow.remove();

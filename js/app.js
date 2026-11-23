@@ -1,5 +1,9 @@
 import { apiUrl } from './api-base.js';
 import { resolveHeart } from './heart.js?v=1';
+// Static import is safe here: theme.js is dependency-free, already loaded in
+// <head>, and initTheme() is idempotent (re-scans and wires only NEW
+// [data-theme-toggle] buttons via a per-button dataset guard).
+import { initTheme } from './theme.js';
 // SPA orchestrator for Asistente Judicial.
 //
 // The landing page is STATIC HTML (#view-landing) — it renders even with
@@ -42,6 +46,17 @@ async function getSounds() {
     soundsMod = await import('./sounds.js?v=2');
   }
   return soundsMod;
+}
+
+// Chat widget module: owns the TTS auto-read storage helpers used by the
+// Perfil panel. Same URL as the chat mount import so both share the module.
+let chatWidgetMod = null;
+
+async function getChatWidget() {
+  if (!chatWidgetMod) {
+    chatWidgetMod = await import('./chat-widget.js?v=9');
+  }
+  return chatWidgetMod;
 }
 
 // Collapsible cards remember their open state per data-open-key (same
@@ -289,6 +304,9 @@ function showDashboard(session) {
     showLanding();
     return;
   }
+  // The app header carries its own theme toggle (cloned from the template):
+  // re-scan so a freshly cloned header gets wired. initTheme() is idempotent.
+  initTheme();
   dash.classList.remove('hidden');
   populateUserUI(session);
   if (!dash.dataset.wired) {
@@ -373,12 +391,23 @@ function populateSettings() {
     removeBtn.classList.toggle('hidden', !currentUser.avatar);
   }
 
-  // Sounds toggle: reflect the stored opt-in (default OFF when unset).
+  // Sounds toggle: reflect the stored opt-in (default ON when unset —
+  // see sounds.js soundsEnabled()).
   const soundsToggle = $id('settings-sounds-toggle');
   if (soundsToggle) {
     getSounds()
       .then(({ soundsEnabled }) => {
         soundsToggle.checked = soundsEnabled();
+      })
+      .catch(() => {});
+  }
+
+  // Auto-read toggle: reflect the stored opt-in (default ON when unset).
+  const voiceAutoToggle = $id('settings-voice-auto-toggle');
+  if (voiceAutoToggle) {
+    getChatWidget()
+      .then(({ voiceAutoEnabled }) => {
+        voiceAutoToggle.checked = voiceAutoEnabled();
       })
       .catch(() => {});
   }
@@ -500,6 +529,14 @@ function initProfilePanel() {
     const enabled = Boolean(event.target.checked);
     getSounds()
       .then(({ setSoundsEnabled }) => setSoundsEnabled(enabled))
+      .catch(() => {});
+  });
+
+  // Auto-read toggle: persist immediately on change (no form save needed).
+  $id('settings-voice-auto-toggle')?.addEventListener('change', (event) => {
+    const enabled = Boolean(event.target.checked);
+    getChatWidget()
+      .then(({ setVoiceAutoEnabled }) => setVoiceAutoEnabled(enabled))
       .catch(() => {});
   });
 
