@@ -17,12 +17,12 @@ const STORAGE_TEMA = 'aj:tema';
 const STORAGE_SKIN = 'aj:skin';
 
 const THEMES = ['dia', 'noche'];
-const SKINS = ['teal', 'indigo', 'esmeralda', 'ambar', 'rosa', 'violeta'];
+const SKINS = ['fenix', 'teal', 'indigo', 'esmeralda', 'ambar', 'rosa', 'violeta'];
 
 /**
  * Valid accent skin names (mirrors the data-skin blocks in /css/tokens.css).
  *
- * @typedef {'teal'|'indigo'|'esmeralda'|'ambar'|'rosa'|'violeta'} SkinName
+ * @typedef {'fenix'|'teal'|'indigo'|'esmeralda'|'ambar'|'rosa'|'violeta'} SkinName
  */
 
 const THEME_LABELS = {
@@ -31,6 +31,7 @@ const THEME_LABELS = {
 };
 
 const SKIN_LABELS = {
+  fenix: 'dorado',
   teal: 'verde azulado',
   indigo: 'índigo',
   esmeralda: 'esmeralda',
@@ -68,7 +69,7 @@ export function getTema() {
  * @returns {SkinName} The active accent skin.
  */
 export function getSkin() {
-  return SKINS.includes(root.dataset.skin) ? root.dataset.skin : 'teal';
+  return SKINS.includes(root.dataset.skin) ? root.dataset.skin : 'fenix';
 }
 
 /**
@@ -98,7 +99,7 @@ export function applyTema(tema, persist = true) {
  * @returns {SkinName}
  */
 export function applySkin(skin, persist = true) {
-  const next = SKINS.includes(skin) ? skin : 'teal';
+  const next = SKINS.includes(skin) ? skin : 'fenix';
   root.dataset.skin = next;
 
   if (persist) {
@@ -212,7 +213,7 @@ export function initTheme() {
   }
 
   if (!root.dataset.skin) {
-    applySkin(readStored(STORAGE_SKIN, 'teal'), false);
+    applySkin(readStored(STORAGE_SKIN, 'fenix'), false);
   }
 
   document.querySelectorAll('[data-theme-toggle]').forEach((button) => {

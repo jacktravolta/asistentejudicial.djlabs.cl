@@ -5,8 +5,8 @@
  * theme or skin change is a pure custom-property swap — no class rewrites.
  *
  * Themes:  html[data-tema="dia" | "noche"]
- * Skins:   html[data-skin="teal" | "indigo" | "esmeralda" | "ambar" |
- *          "rosa" | "violeta"]
+ * Skins:   html[data-skin="fenix" | "teal" | "indigo" | "esmeralda" |
+ *          "ambar" | "rosa" | "violeta"]
  *
  * Colour values are stored as space-separated RGB channels so Tailwind can
  * apply opacity modifiers (bg-surface/80) through `rgb(var(--x) / <alpha>)`.
@@ -16,8 +16,8 @@
  * Type, motion and non-colour tokens (theme-independent)
  * ------------------------------------------------------------------ */
 :root {
-  --font-display: 'Newsreader', Georgia, 'Times New Roman', serif;
-  --font-body: 'Public Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+  --font-body: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   --radius-sm: 0.5rem;
   --radius-md: 0.75rem;
@@ -209,6 +209,54 @@
 }
 
 /* ------------------------------------------------------------------ *
+ * Skin "fenix" (default) — Fénix Legal palette, full swap per theme
+ *
+ * Ivory paper with navy ink by day; deep navy surfaces with ivory
+ * text by night. Gold accent (#a68b4a day / #d9c98a night) carries
+ * buttons and highlights; button text on gold is navy in both themes.
+ * Unlike the accent-only skins above, this skin also remaps the
+ * neutral palette, so it must define the full variable set.
+ * ------------------------------------------------------------------ */
+:root[data-tema='dia'][data-skin='fenix'] {
+  --c-bg: 250 250 248;          /* Ivory  #FAFAF8 */
+  --c-surface: 255 255 255;     /* cards, inputs */
+  --c-surface-2: 241 239 233;   /* Ivory-2 #F1EFE9 */
+  --c-border: 226 221 208;      /* #E2DDD0 */
+  --c-border-soft: 236 232 220;
+  --c-border-strong: 203 195 176;
+  --c-text: 10 26 38;           /* Navy  #0A1A26 */
+  --c-text-muted: 74 74 74;     /* #4A4A4A */
+  --c-text-subtle: 107 107 107;
+  --c-scrim: 10 26 38;
+
+  --c-accent-soft: 245 239 223; /* pale gold wash */
+  --c-accent: 166 139 74;       /* Gold  #A68B4A */
+  --c-accent-hover: 154 127 66; /* held lighter than the #8C7340 mockup
+                                   hover so navy button text stays >= 4.5:1 */
+  --c-accent-strong: 111 90 46; /* #6F5A2E */
+  --c-accent-contrast: 10 26 38;/* navy text on gold */
+}
+
+:root[data-tema='noche'][data-skin='fenix'] {
+  --c-bg: 10 26 38;             /* Navy  #0A1A26 */
+  --c-surface: 26 47 64;        /* Navy-2 #1A2F40 */
+  --c-surface-2: 34 54 72;
+  --c-border: 46 66 86;
+  --c-border-soft: 32 48 64;
+  --c-border-strong: 66 90 114;
+  --c-text: 250 250 248;        /* Ivory #FAFAF8 */
+  --c-text-muted: 230 225 213;  /* #E6E1D5 */
+  --c-text-subtle: 190 183 165;
+  --c-scrim: 0 0 0;
+
+  --c-accent-soft: 42 56 70;    /* navy-gold panel tint */
+  --c-accent: 217 201 138;      /* Gold highlight #D9C98A */
+  --c-accent-hover: 201 184 120;
+  --c-accent-strong: 232 221 184;
+  --c-accent-contrast: 10 26 38;/* navy text on light gold */
+}
+
+/* ------------------------------------------------------------------ *
  * Accessibility: focus indicators and interactive elements
  * ===================================================================== */
 :focus-visible {
@@ -324,6 +372,15 @@ h4 {
 
 :root[data-tema='noche'] .hover\:bg-blue-700:hover,
 :root[data-tema='noche'] .hover\:bg-brand-700:hover {
+  color: rgb(var(--c-accent-contrast));
+}
+
+/* Fenix (day): gold buttons and the gold active nav pill carry navy text
+ * (white on #A68B4A would be 3.3:1). Night is already covered by the
+ * generic bridges above through --c-accent-contrast. Scoped to the skin
+ * so the other accents keep their white-on-dark foregrounds. */
+:root[data-tema='dia'][data-skin='fenix'] .bg-blue-600,
+:root[data-tema='dia'][data-skin='fenix'] .bg-brand-600 {
   color: rgb(var(--c-accent-contrast));
 }
 

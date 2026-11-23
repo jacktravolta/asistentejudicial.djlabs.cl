@@ -78,8 +78,8 @@ module.exports = {
         sky: status('--c-info-soft', '--c-info-border', '--c-info-text'),
       },
       fontFamily: {
-        sans: ['var(--font-body)'],
-        display: ['var(--font-display)'],
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+        display: ['"Cormorant Garamond"', 'Georgia', 'serif'],
       },
     },
   },
