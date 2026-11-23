@@ -306,6 +306,10 @@ h4 {
   background-color: rgb(var(--c-surface));
 }
 
+:root[data-tema='noche'] .focus-within\:bg-white:focus-within {
+  background-color: rgb(var(--c-surface));
+}
+
 :root[data-tema='noche'] .bg-slate-900\/40 {
   background-color: rgb(var(--c-scrim) / 0.6);
 }
