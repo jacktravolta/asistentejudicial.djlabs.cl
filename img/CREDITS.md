@@ -29,3 +29,9 @@ appreciated but not required). The attribution below is provided as good practic
 - To replace a photo: same filename in the assets repo (URL stability),
   update its `CREDITS.md`, and keep `loading="lazy"` + descriptive `alt` in
   the landing markup.
+
+## Vendored brand assets
+
+| File | Source | Author | License |
+| --- | --- | --- | --- |
+| `fenix-logo.jpg` | Owner-provided Fénix Legal mockup (`/home/test/test/feixlegal.cl/FENIX-LEGAL-Solo-Archivo.html`): phoenix and scales on navy with gold wordmark | Fénix Legal (project owner) | Provided by the owner for this site; all rights reserved by the owner |
