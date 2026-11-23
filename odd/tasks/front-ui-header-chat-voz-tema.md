@@ -83,11 +83,37 @@ de chat donde indica las fuentes").
 
 ## Checklist
 
-- [ ] **FA** — Input legible en noche + Perfil `max-w-4xl`. Delegado (WU-A).
-- [ ] **FB** — Header en una línea (container/nav/pills/cluster + rebuild
-      css). Delegado (WU-B).
-- [ ] **FC** — Auto-voz ON por defecto con switch en Perfil + toggle
-      día/noche en header + `renderSources` con enlaces. Delegado (WU-C).
+- [x] **FA** — Input legible en noche + Perfil `max-w-4xl` — commit `af2a662`
+      (puente oscuro `:root[data-tema='noche']` para `focus-within:bg-white`
+      en tokens.css:309-311; cascada verificada: tokens.css carga antes que
+      tailwind.css y (0,4,0) vence a (0,2,0)).
+- [x] **FB** — Header en una línea — commit `42b328e` (container
+      `flex-nowrap gap-2 min-w-0`; nav `overflow-x-auto` con scrollbar
+      oculto; 9 pills compactas `text-[13px] sm:text-sm`; cluster
+      `shrink-0`; `#mobile-balance` íntegro; labels byte-idénticos;
+      `css/tailwind.css` reconstruido).
+- [x] **FC** — Auto-voz + toggle día/noche + fuentes con enlaces — commit
+      `057233c` (`aj:tts_auto` ausente=ON; switch `#settings-voice-auto-toggle`
+      en Perfil; hook post-respuesta con `speakText` local GRATIS — flujo
+      pago `/tts` byte-intacto verificado en diff; `#tts-stop-btn` cancela;
+      copia honesta de sonidos "Empieza encendido"; `data-theme-toggle` en
+      header + `initTheme()` tras mount, idempotente por botón;
+      `renderSources` con `createElement('a')`+`textContent`, URLs seguras
+      http(s)/root-relative, prefijo `Precedente — `).
+
+## Verificación independiente (2026-11-23)
+
+- Verificador independiente (fresh context, read-only): **APPROVED** — los 6
+  requisitos verificados contra los diffs reales; sin regresiones; flujo TTS
+  pago y blob-download intactos; solo archivos permitidos tocados.
+- `node --check` OK en los 3 JS; greps de hooks íntegros (menu-toggle,
+  contact-form, nav-item[data-panel], mobile-balance, bell, logout, nav-admin).
+- Assessment nativo: high/unassessable (runtime no elegible para revisión
+  inmutable; RDD OFF) → verificación por writer + verificador independiente.
+- CDP: no disponible en esta máquina (:9222 sin respuesta) — `cdp_front_test`
+  NO corrido; verificación de runtime pendiente de Chrome CDP (riesgo
+  declarado: comportamiento one-line del header y color nocturno verificados
+  estructuralmente, no en navegador).
 
 ## Ruta de implementación
 
