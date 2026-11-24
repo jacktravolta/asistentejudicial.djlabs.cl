@@ -1229,30 +1229,34 @@ export function mountChat(container, options = {}) {
     // Acciones por burbuja SOLO si el texto supera el umbral de frases
     // (admin-editable en /ui-settings; default 3).
     const showActions = countSentences(text) > (state.bubbleMinSentences || 3);
-    let actions = null;
     let audioBtn = null;
     let editBtn = null;
     let deleteBtn = null;
+
+    // One action row keeps every icon on the same baseline and in the same
+    // touch-sized box. The speaker remains available on every bubble; the
+    // edit/delete actions still respect the configured sentence threshold.
+    const actions = el('div', {
+      class: 'chat-action-row flex items-center gap-1',
+      role: 'group',
+      'aria-label': 'Acciones del mensaje'
+    });
 
     // — Escuchar (TTS, operación pagada): SIEMPRE disponible, desde la
     // primera burbuja del historial, sin umbral de frases. —
     audioBtn = el('button', {
       type: 'button',
-      class: 'tts-btn rounded p-1 text-slate-400 transition hover:bg-slate-200 hover:text-brand-700',
+      class: 'tts-btn chat-action-btn',
       title: 'Escuchar mensaje',
       'aria-label': 'Escuchar mensaje'
     }, [svgIcon('audio')]);
+    actions.append(audioBtn);
 
     if (showActions) {
-      actions = el('div', {
-        class: 'flex items-center gap-1',
-        'aria-label': 'Acciones del mensaje'
-      });
-
       // — Editar/Descargar: abre el editor con el flujo TXT/DOCX/PDF —
       editBtn = el('button', {
         type: 'button',
-        class: 'rounded p-1 text-slate-400 transition hover:bg-slate-200 hover:text-brand-700',
+        class: 'chat-action-btn',
         title: 'Editar y descargar documento',
         'aria-label': 'Editar y descargar documento'
       }, [svgIcon('download')]);
@@ -1260,17 +1264,15 @@ export function mountChat(container, options = {}) {
       // — Eliminar —
       deleteBtn = el('button', {
         type: 'button',
-        class: 'rounded p-1 text-slate-400 transition hover:bg-slate-200 hover:text-rose-600',
+        class: 'chat-action-btn',
         title: 'Eliminar mensaje',
         'aria-label': 'Eliminar mensaje'
       }, [svgIcon('trash')]);
 
       actions.append(editBtn, deleteBtn);
-      content.append(bubble, audioBtn, actions);
-    } else {
-      // Sin umbral: solo el botón de audio junto a la burbuja.
-      content.append(bubble, audioBtn);
     }
+
+    content.append(bubble, actions);
 
     if (isOwn) {
       row.append(content);
@@ -1296,11 +1298,8 @@ export function mountChat(container, options = {}) {
       list.scrollTop = list.scrollHeight;
     }
 
-    // Sin acciones (burbuja corta): nada que atar.
-    if (!showActions) return row;
-
     // — Editar: bot abre el modal del editor (descarga TXT/DOCX/PDF 1 crédito); user edita inline —
-    editBtn.addEventListener('click', (e) => {
+    editBtn?.addEventListener('click', (e) => {
       e.stopPropagation();
       if (role === 'assistant' || role === 'bot') {
         // chat-editor.js es un script clásico (IIFE -> window.ChatEditor):
@@ -1387,7 +1386,7 @@ export function mountChat(container, options = {}) {
 
     // — Eliminar: SIEMPRE pide confirmación por modal (rojo, no recuperable,
     // link a privacidad). Sin modal no se borra nada. —
-    deleteBtn.addEventListener('click', (e) => {
+    deleteBtn?.addEventListener('click', (e) => {
       e.stopPropagation();
       confirmDangerModal({
         title: '¿Eliminar este mensaje?',
@@ -1962,7 +1961,7 @@ export function mountChat(container, options = {}) {
     svg.setAttribute('stroke', 'currentColor');
     svg.setAttribute('stroke-width', '1.8');
     svg.setAttribute('aria-hidden', 'true');
-    svg.classList.add('h-3.5', 'w-3.5');
+    svg.classList.add('chat-action-icon');
     // Los SVG tienen className como SVGAnimatedString (no string): cualquier
     // handler global (ej. extensiones del navegador) que haga
     // e.target.className.indexOf(...) crashea si el click cae en el SVG.

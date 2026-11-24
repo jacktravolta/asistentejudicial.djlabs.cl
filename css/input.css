@@ -1,3 +1,50 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer components {
+  .chat-action-row {
+    gap: 0.25rem;
+  }
+
+  .chat-action-btn {
+    display: inline-flex;
+    width: 2.5rem;
+    height: 2.5rem;
+    min-width: 2.5rem;
+    min-height: 2.5rem;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 9999px;
+    background-color: transparent;
+    color: rgb(var(--c-text-muted));
+    cursor: pointer;
+    transition: background-color 150ms ease, color 150ms ease, opacity 150ms ease;
+  }
+
+  .chat-action-btn:hover:not(:disabled) {
+    background-color: rgb(var(--c-surface-2));
+    color: rgb(var(--c-accent-strong));
+  }
+
+  .chat-action-btn:focus-visible {
+    outline: var(--ring-width) solid rgb(var(--c-accent));
+    outline-offset: 2px;
+  }
+
+  .chat-action-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+
+  .chat-action-icon {
+    display: block;
+    width: 1.125rem;
+    height: 1.125rem;
+    flex: 0 0 auto;
+    pointer-events: none;
+  }
+}
