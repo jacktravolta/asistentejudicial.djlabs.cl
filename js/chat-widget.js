@@ -85,6 +85,37 @@ export function setVoiceAutoEnabled(enabled) {
   }
 }
 
+// `aj:tts_enabled` is the master voice gate (default ON). `aj:tts_auto` only
+// controls automatic reading while the master gate is enabled; the two
+// preferences are independent and never overwrite each other.
+const TTS_ENABLED_STORAGE_KEY = 'aj:tts_enabled';
+let memoryVoiceEnabled = null;
+
+/**
+ * @returns {boolean} True unless the user explicitly turned voice off.
+ */
+export function voiceEnabled() {
+  try {
+    const stored = localStorage.getItem(TTS_ENABLED_STORAGE_KEY);
+    if (stored !== null) {
+      memoryVoiceEnabled = stored !== '0';
+    }
+  } catch (_) {
+    // Storage blocked: keep the session-only fallback below.
+  }
+  return memoryVoiceEnabled !== null ? memoryVoiceEnabled : true;
+}
+
+/** Persist the master voice switch from the chat controls. */
+export function setVoiceEnabled(enabled) {
+  memoryVoiceEnabled = Boolean(enabled);
+  try {
+    localStorage.setItem(TTS_ENABLED_STORAGE_KEY, memoryVoiceEnabled ? '1' : '0');
+  } catch (_) {
+    // Storage blocked (private mode): the switch still works for this session.
+  }
+}
+
 /**
  * @param {string} tag
  * @param {Record<string, string>} attrs
@@ -372,6 +403,36 @@ export function mountChat(container, options = {}) {
   });
   voiceSelect.append(new Option('Automática', ''));
 
+  // Master voice switch: it is independent from automatic reading and always
+  // available in the chat controls. The muted icon makes the disabled state
+  // visible without relying on color alone.
+  const initialVoiceEnabled = voiceEnabled();
+  const initialVoiceLabel = initialVoiceEnabled ? 'Voz activada' : 'Voz desactivada';
+  const voiceToggle = el('button', {
+    id: 'chat-voice-toggle',
+    type: 'button',
+    class: 'chat-action-btn',
+    'aria-pressed': initialVoiceEnabled ? 'true' : 'false',
+    'aria-label': initialVoiceLabel,
+    title: initialVoiceLabel,
+  }, [
+    svgIcon(initialVoiceEnabled ? 'audio' : 'audio-muted'),
+    el('span', { class: 'chat-voice-toggle-state sr-only' }, [initialVoiceLabel]),
+  ]);
+
+  voiceToggle.addEventListener('click', () => {
+    const enabled = !voiceEnabled();
+    setVoiceEnabled(enabled);
+    updateVoiceControls(enabled);
+  });
+
+  const headerActions = el('div', {
+    class: 'flex shrink-0 items-center gap-1',
+    role: 'group',
+    'aria-label': 'Controles de voz del chat',
+  });
+  headerActions.append(voiceToggle, voiceSelect, balanceBadge);
+
   // Repuebla el selector con las voces curadas del navegador. Se llama también
   // desde voiceschanged: en Chrome la lista llega después de la carga.
   function fillVoiceSelect() {
@@ -421,7 +482,7 @@ export function mountChat(container, options = {}) {
 
   fillVoiceSelect();
 
-  header.append(titleBox, voiceSelect, balanceBadge);
+  header.append(titleBox, headerActions);
 
   // Umbral de frases para mostrar acciones + imagen del asistente: config desde admin.
   fetch(apiUrl('/ui-settings'), { credentials: 'include' })
@@ -1244,12 +1305,14 @@ export function mountChat(container, options = {}) {
 
     // — Escuchar (TTS, operación pagada): SIEMPRE disponible, desde la
     // primera burbuja del historial, sin umbral de frases. —
+    const audioAvailable = voiceEnabled();
     audioBtn = el('button', {
       type: 'button',
       class: 'tts-btn chat-action-btn',
-      title: 'Escuchar mensaje',
-      'aria-label': 'Escuchar mensaje'
-    }, [svgIcon('audio')]);
+      title: audioAvailable ? 'Escuchar mensaje' : 'Voz desactivada',
+      'aria-label': audioAvailable ? 'Escuchar mensaje' : 'Voz desactivada'
+    }, [svgIcon(audioAvailable ? 'audio' : 'audio-muted')]);
+    audioBtn.disabled = !audioAvailable;
     actions.append(audioBtn);
 
     if (showActions) {
@@ -1328,6 +1391,10 @@ export function mountChat(container, options = {}) {
     // — Escuchar: cotización server + confirm + cobro + Web Speech API —
     audioBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
+      if (!voiceEnabled()) {
+        updateVoiceControls(false);
+        return;
+      }
       // Mientras habla: detener es gratis (y re-habilita los botones).
       if (window.speechSynthesis && speechSynthesis.speaking) {
         speechSynthesis.cancel();
@@ -1486,6 +1553,38 @@ export function mountChat(container, options = {}) {
 
   // ---- TTS: cobro server-side + Web Speech API (nativa) ----
   let ttsCooldownUntil = 0;
+
+  function syncTtsButtons(enabled) {
+    document.querySelectorAll('.tts-btn').forEach((button) => {
+      const label = enabled ? 'Escuchar mensaje' : 'Voz desactivada';
+      button.disabled = !enabled;
+      button.title = label;
+      button.setAttribute('aria-label', label);
+      const icon = button.querySelector('svg.chat-action-icon');
+      if (icon) {
+        icon.replaceWith(svgIcon(enabled ? 'audio' : 'audio-muted'));
+      }
+    });
+  }
+
+  function updateVoiceControls(enabled) {
+    const label = enabled ? 'Voz activada' : 'Voz desactivada';
+    voiceToggle.setAttribute('aria-pressed', String(enabled));
+    voiceToggle.setAttribute('aria-label', label);
+    voiceToggle.title = label;
+    const state = voiceToggle.querySelector('.chat-voice-toggle-state');
+    if (state) state.textContent = label;
+    const icon = voiceToggle.querySelector('svg.chat-action-icon');
+    if (icon) {
+      icon.replaceWith(svgIcon(enabled ? 'audio' : 'audio-muted'));
+    }
+
+    if (!enabled && window.speechSynthesis) {
+      speechSynthesis.cancel();
+    }
+    hideStopButton();
+    syncTtsButtons(enabled);
+  }
 
   // Skip de confirm POR BURBUJA (hash del texto, solo sesión actual).
   function hashText(t) {
@@ -1670,6 +1769,13 @@ export function mountChat(container, options = {}) {
   }
 
   function speakText(text) {
+    if (!voiceEnabled()) {
+      if (window.speechSynthesis) speechSynthesis.cancel();
+      hideStopButton();
+      syncTtsButtons(false);
+      return false;
+    }
+
     showStopButton();
     const voice = pickBestVoice();
     const chunks = splitForSpeech(text, 200);
@@ -1689,6 +1795,7 @@ export function mountChat(container, options = {}) {
       // speechSynthesis encola automáticamente: suenan en orden.
       speechSynthesis.speak(utter);
     });
+    return true;
   }
 
   function disableTtsButtons() {
@@ -1696,12 +1803,16 @@ export function mountChat(container, options = {}) {
   }
 
   function enableTtsButtons() {
-    document.querySelectorAll('.tts-btn').forEach(b => { b.disabled = false; });
+    syncTtsButtons(voiceEnabled());
   }
 
   const cr = (n) => `${n} crédito${n === 1 ? '' : 's'}`;
 
   async function ttsQuote(text) {
+    if (!voiceEnabled()) {
+      return { success: false, error: 'La voz está desactivada. Actívala para escuchar este mensaje.' };
+    }
+
     const r = await fetch(apiUrl('/tts'), {
       method: 'POST',
       headers: authHeaders(),
@@ -1714,6 +1825,10 @@ export function mountChat(container, options = {}) {
   }
 
   async function ttsCharge(text, operationId) {
+    if (!voiceEnabled()) {
+      return { success: false, error: 'La voz está desactivada. Actívala para escuchar este mensaje.' };
+    }
+
     const r = await fetch(apiUrl('/tts'), {
       method: 'POST',
       headers: authHeaders(),
@@ -1727,6 +1842,8 @@ export function mountChat(container, options = {}) {
 
   // Confirm TTS: overlay liviano con desglose oficial (server quote).
   function openTtsConfirm(text, isFragment) {
+    if (!voiceEnabled()) return;
+
     const overlay = el('div', {
       class: 'fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/40 p-4'
     });
@@ -1768,6 +1885,10 @@ export function mountChat(container, options = {}) {
     backBtn.onclick = () => overlay.remove();
     okBtn.onclick = async () => {
       overlay.remove();
+      if (!voiceEnabled()) {
+        syncTtsButtons(false);
+        return;
+      }
       disableTtsButtons();
       try {
         const charged = await ttsCharge(text, 'tts_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8));
@@ -1794,6 +1915,11 @@ export function mountChat(container, options = {}) {
       }
     };
     ttsQuote(text).then(q => {
+      if (!voiceEnabled()) {
+        overlay.remove();
+        syncTtsButtons(false);
+        return;
+      }
       const p = q && q.success && q.pricing ? q.pricing : null;
       if (!p) return;
       totalEl.textContent = `Costo de escuchar: ${cr(p.total_credits)}`;
@@ -1889,6 +2015,11 @@ export function mountChat(container, options = {}) {
   }
 
   async function startTtsFlow(clean, isFragment) {
+    if (!voiceEnabled()) {
+      syncTtsButtons(false);
+      return;
+    }
+
     try {
       const q = await ttsQuote(clean);
       if (!q.success) { showErrorOverlay(q.error || 'No se pudo cotizar la locución.'); return; }
@@ -1973,6 +2104,10 @@ export function mountChat(container, options = {}) {
       path.setAttribute('stroke-linecap', 'round');
       path.setAttribute('stroke-linejoin', 'round');
       path.setAttribute('d', 'M11 5L6 9H2v6h4l5 4V5z M15.54 8.46a5 5 0 010 7.07 M19.07 4.93a10 10 0 010 14.14');
+    } else if (name === 'audio-muted') {
+      path.setAttribute('stroke-linecap', 'round');
+      path.setAttribute('stroke-linejoin', 'round');
+      path.setAttribute('d', 'M11 5L6 9H2v6h4l5 4V5z M16 9l5 6 M21 9l-5 6');
     } else if (name === 'download') {
       path.setAttribute('stroke-linecap', 'round');
       path.setAttribute('stroke-linejoin', 'round');
@@ -2170,7 +2305,7 @@ export function mountChat(container, options = {}) {
       // speechSynthesis path — the paid /tts flow stays untouched. The
       // floating #tts-stop-btn calls speechSynthesis.cancel(), so it also
       // stops this auto-read.
-      if (voiceAutoEnabled() && 'speechSynthesis' in window) {
+      if (voiceEnabled() && voiceAutoEnabled() && 'speechSynthesis' in window) {
         speakText(cleanForSpeech(answerText));
       }
     } catch (networkError) {

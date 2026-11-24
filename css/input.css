@@ -30,6 +30,13 @@
     color: rgb(var(--c-accent-strong));
   }
 
+  .chat-action-btn[aria-pressed='false'],
+  .chat-action-btn[aria-pressed='false']:hover:not(:disabled) {
+    background-color: rgb(var(--c-surface-2));
+    color: rgb(var(--c-text-subtle));
+    opacity: 0.72;
+  }
+
   .chat-action-btn:focus-visible {
     outline: var(--ring-width) solid rgb(var(--c-accent));
     outline-offset: 2px;

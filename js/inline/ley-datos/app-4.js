@@ -607,7 +607,7 @@
 
     function ensureChatPanel() {
       if (!chatWidgetPromise) {
-        chatWidgetPromise = import('../../chat-widget.js?v=12')
+        chatWidgetPromise = import('../../chat-widget.js?v=13')
           .then((m) => m.mountChat(document.getElementById('chat-panel'), {
             title: 'Asistente Ley 21.719',
             placeholder: 'Pregúntame sobre el informe…',
