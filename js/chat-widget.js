@@ -1216,8 +1216,8 @@ export function mountChat(container, options = {}) {
     });
     const bubble = el('div', {
       class: isOwn
-        ? 'max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-blue-600 px-3.5 py-2.5 text-sm text-white'
-        : 'max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-bl-sm bg-slate-100 px-3.5 py-2.5 text-sm text-slate-800',
+        ? 'max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-br-sm bubble bubble-user'
+        : 'max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-bl-sm bubble bubble-assistant',
     });
 
     // Store original text for editor/TTS downstream BEFORE typing starts:
