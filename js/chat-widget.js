@@ -375,7 +375,7 @@ export function mountChat(container, options = {}) {
 
   // ----- Header: title + remaining balance (authenticated only) -----
   const header = el('div', {
-    class: 'mx-auto flex w-full max-w-3xl items-center justify-between gap-3 px-4 pb-1 pt-3',
+    class: 'mx-auto flex w-full max-w-4xl items-center justify-between gap-3 px-4 pb-1 pt-3',
   });
 
   const titleBox = el('div', { class: 'min-w-0' });
@@ -499,12 +499,12 @@ export function mountChat(container, options = {}) {
 
   // ----- Message list: centered column, scrollbars hidden (native feel) -----
   const list = el('div', {
-    class: 'chat-messages mx-auto w-full max-w-3xl flex-1 space-y-3 overflow-y-auto px-4 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden scroll-smooth',
+    class: 'chat-messages mx-auto w-full max-w-4xl flex-1 space-y-3 overflow-y-auto px-4 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden scroll-smooth',
   });
 
   // ----- Input bar (pill with action icons) -----
   const form = el('form', {
-    class: 'mx-auto flex w-full max-w-3xl items-end gap-2 border-t border-slate-200/70 bg-white/90 px-4 py-3 backdrop-blur',
+    class: 'mx-auto flex w-full max-w-4xl items-end gap-2 border-t border-slate-200/70 bg-white/90 px-4 py-3 backdrop-blur',
   });
 
   const pill = el('div', {
@@ -550,7 +550,7 @@ export function mountChat(container, options = {}) {
   // Host for host-page attachment cards (progress/result), shown between
   // the messages and the input bar.
   const attachmentHost = el('div', {
-    class: 'chat-attachments mx-auto w-full max-w-3xl space-y-2 px-4 empty:hidden',
+    class: 'chat-attachments mx-auto w-full max-w-4xl space-y-2 px-4 empty:hidden',
   });
 
   // Hidden file input for attachments (Meta AI style: self-contained)
