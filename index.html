@@ -55,7 +55,7 @@
   <main id="contenido">
     <div id="view-landing" class="min-h-screen">
 <header class="sticky top-0 z-40 border-b border-slate-200/70 bg-slate-50/90 backdrop-blur">
-    <nav class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6" aria-label="Navegación principal">
+    <nav class="mx-auto flex max-w-md items-center justify-between gap-4 px-4 py-3 sm:px-6" aria-label="Navegación principal">
       <!-- Brand mark -->
       <a href="#inicio" class="flex items-center gap-2" aria-label="Asistente Jurídico Digital, ir al inicio">
         <img src="img/fenix-logo.jpg" alt="Fénix Legal" class="h-9 w-9 rounded-full object-cover shadow-sm" width="36" height="36">
@@ -106,7 +106,7 @@
 
     <!-- Mobile menu -->
     <div id="mobile-menu" class="hidden border-t border-slate-200 bg-white lg:hidden">
-      <ul class="mx-auto flex max-w-6xl flex-col gap-1 px-4 py-3 text-sm font-medium text-slate-700 sm:px-6">
+      <ul class="mx-auto flex max-w-md flex-col gap-1 px-4 py-3 text-sm font-medium text-slate-700 sm:px-6">
         <li><a href="#resolvemos" class="block rounded-lg px-3 py-2.5 transition hover:bg-slate-50 hover:text-brand-700">Qué resolvemos</a></li>
         <li><a href="#como-funciona" class="block rounded-lg px-3 py-2.5 transition hover:bg-slate-50 hover:text-brand-700">Cómo funciona</a></li>
         <li><a href="#precios" class="block rounded-lg px-3 py-2.5 transition hover:bg-slate-50 hover:text-brand-700">Precios</a></li>
@@ -1028,9 +1028,115 @@
             </button>
           </div>
         </div>
+
+        <div class="flex items-center gap-2 mt-3">
+          <input type="checkbox" name="remember" id="login-remember" class="rounded border border-slate-300 bg-white p-1.5 cursor-pointer accent-brand-600 hover:border-brand-400 w-4 h-4">
+          <label for="login-remember" class="text-sm font-medium text-slate-700">Recordar sesión</label>
+        </div>
+
         <button type="submit" class="rounded-xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-700">Entrar</button>
         <div id="login-error" class="hidden rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"></div>
       </form>
+
+      <!-- "Olvidé mi contraseña" form -->
+      <div id="login-recovery" class="mt-4 hidden">
+        <p class="text-sm text-slate-600 mb-2">Ingresa tu correo y te enviaremos un enlace para acceder a la plataforma.</p>
+        <form id="recovery-form" class="mt-2 space-y-3">
+          <div>
+            <label for="recovery-email" class="block text-sm font-medium text-slate-700">Correo</label>
+            <input id="recovery-email" type="email" required class="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm"
+                           aria-label="Correo electrónico">
+          </div>
+          <button type="submit" class="rounded-xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-700">
+            Enviar enlace
+          </button>
+        </form>
+        <p data-recovery-note class="mt-3 text-xs text-emerald-800 hidden">Con ese enlace entras sin contraseña y, desde tu <strong>Perfil</strong>, puedes dejar guardada una nueva para la próxima vez.</p>
+      </div>
+
+      <!-- "Olvidé mi contraseña" link -->
+      <div id="login-recovery" class="mt-4 text-sm text-slate-600">
+        <a href="#/" id="login-recover" class="font-medium text-brand-700 underline underline-brand-200 underline-offset-2 transition hover:decoration-brand-500">Olvidé mi contraseña</a>
+      </div>
+
+      <script>
+        // "Olvidé mi contraseña": wire the recovery link for the login form
+        (function () {
+          const recoverLink = document.getElementById('login-recover');
+          const loginForm = document.getElementById('login-form');
+          const recoveryForm = document.getElementById('recovery-form');
+          const loginRecovery = document.getElementById('login-recovery');
+          const loginSection = document.getElementById('login-section');
+          const errorDiv = document.getElementById('login-error');
+
+          if (!recoverLink || !loginForm || !recoveryForm || !loginRecovery) return;
+
+          // Show recovery form, hide login form
+          recoverLink.addEventListener('click', async (e) => {
+            e.preventDefault();
+            loginForm.hidden = true;
+            recoveryForm.hidden = false;
+            loginRecovery.hidden = true;
+            errorDiv.classList.add('hidden');
+          });
+
+          // Handle recovery form submission
+          recoveryForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const emailInput = recoveryForm.querySelector('[name="email"]');
+            if (!emailInput) return;
+            const email = (emailInput.value || '').trim();
+
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+              errorDiv.textContent = 'Escribe un correo válido (ejemplo: nombre@correo.cl)';
+              errorDiv.classList.remove('hidden');
+              return;
+            }
+
+            const button = recoveryForm.querySelector('button');
+            const originalText = button.textContent;
+            button.disabled = true;
+            button.textContent = 'Enviando enlace…';
+
+            try {
+              const response = await fetch('https://api.djlabs.cl/auth/magic-link', {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Accept: 'application/json',
+                },
+                body: JSON.stringify({ email }),
+              });
+
+              const payload = await response.json();
+
+              if (payload && payload.success) {
+                // Show success, hide forms
+                loginForm.hidden = true;
+                recoveryForm.hidden = true;
+                loginRecovery.hidden = true;
+                const successNote = document.querySelector('[data-recovery-note]');
+                if (successNote) successNote.classList.remove('hidden');
+                // Could also redirect or show a message
+              } else {
+                const message = payload && payload.error && payload.error.message
+                  ? payload.error.message
+                  : 'No pudimos enviar el enlace. Inténtalo nuevamente.';
+                errorDiv.textContent = message;
+                errorDiv.classList.remove('hidden');
+                button.disabled = false;
+                button.textContent = originalText;
+              }
+            } catch (err) {
+              errorDiv.textContent = err.message || 'Error inesperado';
+              errorDiv.classList.remove('hidden');
+              button.disabled = false;
+              button.textContent = originalText;
+            }
+          });
+        })();
+      </script>
 
       <!-- Register form (hidden by default) -->
       <form id="register-form" class="hidden mx-auto flex w-full max-w-sm flex-col gap-4">
@@ -1341,6 +1447,15 @@
           <p class="text-sm leading-relaxed text-slate-600">
             Guarda tus archivos aquí y decide cuáles puede usar el asistente en tus consultas.
           </p>
+          <p class="text-xs text-slate-500">
+            <strong>Créditos:</strong> La extracción y análisis de documentos consume créditos.
+            <span id="doc-credits-info" class="font-medium">Consultar saldo actual</span> en la billetera.
+          </p>
+          <p class="text-xs text-slate-500">
+            <strong>Privacidad:</strong> Los datos de trabajo tienen gracia de <strong>24 horas</strong>
+            y notificación amable doble (6h y 1h). Los datos de tu cuenta y Créditos se conservan
+            de forma independiente al borrado de trabajo.
+          </p>
         </header>
 
         <div class="flex flex-wrap items-center gap-3">
@@ -1370,7 +1485,10 @@
         <div id="documents-list" class="space-y-3" aria-live="polite"></div>
 
         <!-- Feedback for the client-side extraction and ingest pipeline. -->
-        <section id="error" class="hidden rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="alert" aria-live="polite"></section>
+        <section id="error" class="hidden rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="alert" aria-live="polite">
+      <p class="font-medium">Error al procesar el documento</p>
+      <p class="text-sm text-slate-600 mt-1">Intenta nuevamente o sube un archivo diferente. Si el problema persiste, contacta soporte.</p>
+    </section>
 
         <!-- Upload list: shows attached files with progress -->
         <section id="upload-list" class="hidden rounded-xl border border-slate-200 bg-white p-3 space-y-1 max-h-40 overflow-y-auto"></section>
@@ -1390,9 +1508,9 @@
             <h2 class="truncate text-sm font-semibold text-slate-800">Documento listo</h2>
             <span id="result-meta" class="shrink-0 text-xs text-slate-500"></span>
           </div>
-          <!-- The extracted content never renders in the conversation: it stays
-               hidden here (documents.js writes the preview) and only reaches the
-               engine after the user confirms. -->
+          <p class="text-xs text-slate-500 font-medium">
+            El contenido ha sido extraído correctamente. <a href="#panel-clients" class="underline text-brand-600 hover:text-brand-700">Guardar en tu cuenta</a> para usarlo en consultas.
+          </p>
           <pre id="result-text" class="hidden" aria-hidden="true"></pre>
           <p class="text-xs text-slate-500">El contenido no se muestra en el chat. Al confirmar se guardará en tu cuenta.</p>
           <div class="flex justify-end gap-2">
@@ -1407,7 +1525,10 @@
           </div>
         </section>
 
-        <section id="success" class="hidden rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900" role="status" aria-live="polite"></section>
+        <section id="success" class="hidden rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900" role="status" aria-live="polite">
+          <p class="font-medium">Éxito</p>
+          <p class="text-sm text-slate-600 mt-1">El documento ha sido guardado en tu cuenta y estará disponible para tus consultas.</p>
+        </section>
         <input id="file-input" type="file"
                accept=".png,.jpg,.jpeg,.webp,.gif,.pdf,.docx,.txt,.md,.mp3,.wav,.ogg,.m4a,.flac,.webm"
                class="sr-only">
@@ -1600,7 +1721,7 @@
 
   <template id="tpl-wallet">
 <header class="flex flex-col gap-2">
-      <h1 class="text-2xl font-semibold text-slate-900 sm:text-3xl">Tu billetera de créditos</h1>
+      <h1 class="text-2xl font-semibold text-white max-w-md">Tu billetera de créditos</h1>
       <p class="text-sm leading-relaxed text-slate-600 sm:text-base">
         Aquí ves tu saldo, los movimientos de tu cuenta y cuánto cuesta cada operación.
         Los créditos son la moneda interna del servicio: la referencia de 1 crédito ≈ $1 CLP
@@ -1843,7 +1964,7 @@
         <div class="pointer-events-none absolute -bottom-10 -left-6 h-32 w-32 rounded-full bg-white/5" aria-hidden="true"></div>
         <div class="relative flex items-center gap-2">
           <svg class="h-4 w-4 text-white/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-3.6 3.6-5.5 8-5.5s8 1.9 8 5.5"/></svg>
-          <h2 class="text-lg font-semibold text-white">Mi perfil</h2>
+          <h2 class="text-lg font-semibold text-white max-w-md">Mi perfil</h2>
         </div>
         <p class="relative mt-1 text-sm leading-relaxed text-white/80">
           Tu nombre y una foto, si quieres. Se muestran en tus conversaciones y en el
@@ -2802,5 +2923,25 @@
 </template>
 
   <script type="module" src="./js/app.js?v=14"></script>
+<!-- Modal de historial de consultas -->
+<div id="history-modal" class="fixed inset-0 bg-black/40 backdrop-blur z-50 hidden items-center justify-center">
+  <div class="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 p-6 max-h-[80vh] overflow-y-auto">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-lg font-semibold text-slate-900">Historial de consultas</h3>
+      <button id="close-history-modal" class="text-slate-400 hover:text-slate-600">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+    <div id="history-list" class="space-y-2 text-sm text-slate-500">
+      <p class="text-center text-slate-400">No hay consultas guardadas</p>
+    </div>
+    <div class="mt-4 text-center">
+      <button id="clear-history-btn" class="px-4 py-1.5 text-sm text-brand-600 hover:bg-brand-50 rounded">Limpiar historial</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>

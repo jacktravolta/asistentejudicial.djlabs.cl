@@ -1166,9 +1166,11 @@ function wireLandingForms() {
       const passEl = $id('login-password');
       const email = emailEl && emailEl.value ? emailEl.value.trim() : '';
       const password = passEl && passEl.value ? passEl.value : '';
+      const rememberCheckbox = document.getElementById('login-remember');
+      const remember = rememberCheckbox && rememberCheckbox.checked;
       try {
         const auth = await getAuth();
-        const data = await auth.login({ email: email, password: password });
+        const data = await auth.login({ email: email, password: password, remember });
         showDashboard(data);
       } catch (err) {
         showError('login-error', err && err.message ? err.message : 'No pudimos iniciar sesión. Intenta de nuevo.');

@@ -159,10 +159,15 @@ export async function register({ name, email, password, ref, heart }) {
 /**
  * Login with email and password.
  *
- * @param {{ email: string, password: string }} params
+ * @param {{ email: string, password: string, remember?: boolean }} params
  * @returns {Promise<{ user: object, balance: number }>}
  */
-export async function login({ email, password }) {
+export async function login({ email, password, remember }) {
+  let body = { email, password };
+  if (remember) {
+    body.remember = true;
+  }
+
   let response;
 
   try {
@@ -173,7 +178,7 @@ export async function login({ email, password }) {
         'Content-Type': 'application/json',
         Accept: 'application/json',
       },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify(body),
     });
   } catch (networkError) {
     throw new Error('No pudimos conectar con el servidor. Revisa tu conexión e inténtalo nuevamente.');

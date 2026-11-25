@@ -385,6 +385,59 @@ h4 {
 }
 
 /* ------------------------------------------------------------------ *
+ * Burbujas de chat — Fénix Legal palette
+ * ------------------------------------------------------------------ */
+.bubble-user {
+  background: rgb(var(--c-accent)) !important;      /* Gold #A68B4A */
+  color: rgb(var(--c-accent-contrast)) !important; /* Navy #0A1A26 */
+  border-radius: var(--radius-lg);
+}
+
+.bubble-assistant {
+  background: rgb(var(--c-accent-soft)) !important;    /* Pale gold wash #F5EFDF */
+  color: rgb(var(--c-text)) !important;                /* Navy #0A1A26 */
+  border: 1px solid rgb(var(--c-border-soft)) !important;
+  border-radius: var(--radius-lg);
+}
+
+/* Nocturno: burbuja usuario */
+html[data-tema='noche'] .bubble-user {
+  background: rgb(var(--c-accent-strong)) !important;   /* #6F5A2E */
+  color: rgb(var(--c-accent-contrast)) !important;      /* Navy #0A1A26 */
+}
+
+/* Nocturno: burbuja asistente */
+html[data-tema='noche'] .bubble-assistant {
+  background: rgb(var(--c-surface)) !important;        /* #1A2F40 navy-2 */
+  color: rgb(var(--c-text)) !important;                /* #FAFAF8 ivory */
+  border: 1px solid rgb(var(--c-border-soft)) !important;
+}
+
+/* Transiciones suaves */
+.bubble-user,
+.bubble-assistant {
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+html[data-tema='noche'] .bubble-user,
+html[data-tema='noche'] .bubble-assistant {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* --- Contraste y ajustes --- */
+
+/* Asegurar legibilidad sobre el dorado */
+.bubble-user,
+html[data-tema='noche'] .bubble-user {
+  -webkit-text-stroke: 0.5px rgb(var(--c-accent-contrast));
+}
+
+/* Reducir saturación general en modo noche */
+html[data-tema='noche'] .bubble-assistant {
+  filter: opacity(95%);
+}
+
+/* ------------------------------------------------------------------ *
  * Motion
  * ------------------------------------------------------------------ */
 @media (prefers-reduced-motion: reduce) {

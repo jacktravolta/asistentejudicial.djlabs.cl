@@ -357,6 +357,8 @@ export function mountChat(container, options = {}) {
     botAvatar: null,
     ttsVoice: '',
     balance: null,
+    // HISTORIAL SIMPLE: últimas 3 consultas (para navegación rápida)
+    queryHistory: [],
   };
 
   container.classList.add(
@@ -375,7 +377,7 @@ export function mountChat(container, options = {}) {
 
   // ----- Header: title + remaining balance (authenticated only) -----
   const header = el('div', {
-    class: 'mx-auto flex w-full max-w-3xl items-center justify-between gap-3 px-4 pb-1 pt-3',
+    class: 'mx-auto flex w-full max-w-4xl items-center justify-between gap-3 px-4 pb-1 pt-3',
   });
 
   const titleBox = el('div', { class: 'min-w-0' });
@@ -412,6 +414,77 @@ export function mountChat(container, options = {}) {
     id: 'chat-voice-toggle',
     type: 'button',
     class: 'chat-action-btn',
+  });
+
+  // MEMORIA DE SESIÓN: recordar contexto entre mensajes
+  // Sesión remota: usa la API para persistir contexto entre dispositivos
+  const SESSION_API = '/api/session-context';
+  let storedSession = { caseId: null, lastUpdate: null };
+
+  // Cargar contexto de sesión desde la API al iniciar
+  async function loadSessionContext() {
+    try {
+      const resp = await fetch(SESSION_API, {
+        method: 'GET',
+        credentials: 'include',
+        headers: { 'Accept': 'application/json' }
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        storedSession = data || { caseId: null, lastUpdate: null };
+      }
+    } catch (e) {
+      // Si falla la API, degradar a localStorage local
+      try {
+        const stored = localStorage.getItem('aj:chat-session');
+        storedSession = stored ? JSON.parse(stored) : { caseId: null, lastUpdate: null };
+      } catch (e2) {
+        storedSession = { caseId: null, lastUpdate: null };
+      }
+    }
+    // Pre-fill the case identifier if we have stored context
+    if (storedSession && storedSession.caseId) {
+      const caseInput = document.querySelector('input[placeholder*="caso"], input[placeholder*="Caso"]');
+      if (caseInput && !caseInput.value) {
+        caseInput.value = storedSession.caseId;
+      }
+    }
+  }
+  // Cargar al iniciar
+  loadSessionContext().then(() => {
+    // Se ejecuta después de cargar
+  });
+}
+
+async function saveSessionContextRemote(context) {
+  try {
+    const resp = await fetch(SESSION_API, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify(context)
+    });
+    if (!resp.ok) {
+      // Si falla la API, degradar a localStorage local
+      try {
+        localStorage.setItem('aj:chat-session', JSON.stringify(context));
+      } catch (e) {
+        // Storage blocked: silently fail
+      }
+    }
+  } catch (e) {
+    // Si falla la red, degradar a localStorage local
+    try {
+      localStorage.setItem('aj:chat-session', JSON.stringify(context));
+    } catch (e2) {
+      // Storage blocked: silently fail
+    }
+  }
+}
+
     'aria-pressed': initialVoiceEnabled ? 'true' : 'false',
     'aria-label': initialVoiceLabel,
     title: initialVoiceLabel,
@@ -499,12 +572,12 @@ export function mountChat(container, options = {}) {
 
   // ----- Message list: centered column, scrollbars hidden (native feel) -----
   const list = el('div', {
-    class: 'chat-messages mx-auto w-full max-w-3xl flex-1 space-y-3 overflow-y-auto px-4 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden scroll-smooth',
+    class: 'chat-messages mx-auto w-full max-w-4xl flex-1 space-y-3 overflow-y-auto px-4 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden scroll-smooth',
   });
 
   // ----- Input bar (pill with action icons) -----
   const form = el('form', {
-    class: 'mx-auto flex w-full max-w-3xl items-end gap-2 border-t border-slate-200/70 bg-white/90 px-4 py-3 backdrop-blur',
+    class: 'mx-auto flex w-full max-w-4xl items-end gap-2 border-t border-slate-200/70 bg-white/90 px-4 py-3 backdrop-blur',
   });
 
   const pill = el('div', {
@@ -550,7 +623,7 @@ export function mountChat(container, options = {}) {
   // Host for host-page attachment cards (progress/result), shown between
   // the messages and the input bar.
   const attachmentHost = el('div', {
-    class: 'chat-attachments mx-auto w-full max-w-3xl space-y-2 px-4 empty:hidden',
+    class: 'chat-attachments mx-auto w-full max-w-4xl space-y-2 px-4 empty:hidden',
   });
 
   // Hidden file input for attachments (Meta AI style: self-contained)
@@ -1216,8 +1289,8 @@ export function mountChat(container, options = {}) {
     });
     const bubble = el('div', {
       class: isOwn
-        ? 'max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-blue-600 px-3.5 py-2.5 text-sm text-white'
-        : 'max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-bl-sm bg-slate-100 px-3.5 py-2.5 text-sm text-slate-800',
+        ? 'max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-br-sm bubble bubble-user'
+        : 'max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-bl-sm bubble bubble-assistant',
     });
 
     // Store original text for editor/TTS downstream BEFORE typing starts:
@@ -1430,8 +1503,8 @@ export function mountChat(container, options = {}) {
           if (chargedDirect && chargedDirect.success) {
             if (typeof chargedDirect.new_balance === 'number') {
               state.balance = chargedDirect.new_balance;
-              balanceBadge.textContent = `Saldo restante: ${chargedDirect.new_balance} crédito${chargedDirect.new_balance === 1 ? '' : 's'}`;
-              balanceBadge.classList.remove('hidden');
+              // Sin display de saldo restante en chat (ver issue #95791)
+              balanceBadge.classList.add('hidden');
               if (typeof options.onBalanceChange === 'function') options.onBalanceChange(chargedDirect.new_balance);
             }
             ttsCooldownUntil = Date.now() + 10000;
@@ -1895,8 +1968,8 @@ export function mountChat(container, options = {}) {
         if (charged && charged.success) {
           if (typeof charged.new_balance === 'number') {
             state.balance = charged.new_balance;
-            balanceBadge.textContent = `Saldo restante: ${charged.new_balance} crédito${charged.new_balance === 1 ? '' : 's'}`;
-            balanceBadge.classList.remove('hidden');
+            // Sin display de saldo restante en chat (ver issue #95791)
+            balanceBadge.classList.add('hidden');
             if (typeof options.onBalanceChange === 'function') options.onBalanceChange(charged.new_balance);
           }
           ttsCooldownUntil = Date.now() + 10000;
@@ -2068,8 +2141,8 @@ export function mountChat(container, options = {}) {
         if (typeof d.new_balance === 'number') {
           state.balance = d.new_balance;
           state.authenticated = true;
-          balanceBadge.textContent = `Saldo restante: ${d.new_balance} crédito${d.new_balance === 1 ? '' : 's'}`;
-          balanceBadge.classList.remove('hidden');
+          // Sin display de saldo restante en chat (ver issue #95791)
+          balanceBadge.classList.add('hidden');
           if (typeof options.onBalanceChange === 'function') {
             options.onBalanceChange(d.new_balance);
           }
@@ -2192,16 +2265,19 @@ export function mountChat(container, options = {}) {
         + name
         + (source.scope === 'user' ? ' (tus documentos)' : '');
 
+      // Show resumen if available (short description of the source)
+      const resumen = source.resumen ? ` — ${source.resumen.substring(0, 100)}` : '';
+
       if (isSafeSourceUrl(source.url)) {
         const link = document.createElement('a');
         link.href = source.url.trim();
         link.target = '_blank';
         link.rel = 'noopener noreferrer';
         link.className = 'underline decoration-dotted';
-        link.textContent = label;
+        link.textContent = label + resumen;
         line.append(link);
       } else {
-        line.textContent = label;
+        line.textContent = label + resumen;
       }
       sourceList.append(line);
     }
@@ -2275,10 +2351,46 @@ export function mountChat(container, options = {}) {
         ? [...new Set(data.sources.map(s => String(s.source_id || '')).filter(Boolean))]
         : [];
 
+      // MEMORIA DE SESIÓN: guardar contexto del caso después de cada respuesta
+      if (state.authenticated && typeof data.answer === 'string' && data.answer.length > 20) {
+        const stored = loadSessionContext();
+        // Guardar identificador de caso si la respuesta menciona tipos de trámites judiciales
+        const caseDetected = /(demanda|recurso|apelación|queja|trascendencia|mediación)/i.test(data.answer);
+        if (caseDetected && !stored.caseId) {
+          // Extraer posible identificador (Rol, número de caso, etc.) - patterns simples
+          const match = data.answer.match(/[Rr]ol\s+[\d/-]+|[Cc]aso\s+[\d/-]+|[Nn]úmero\s+[\d]+|[Dd]emanda\s+[\d]+/i);
+          if (match) {
+            // Guardar en API remota para persistir entre dispositivos
+            saveSessionContextRemote({ caseId: match[0], lastUpdate: new Date().toISOString() });
+          } else {
+            saveSessionContextRemote({ caseId: 'caso-judicial', lastUpdate: new Date().toISOString() });
+          }
+        } else if (stored.caseId) {
+          // Actualizar marca de tiempo en la API remota
+          stored.lastUpdate = new Date().toISOString();
+          saveSessionContextRemote(stored);
+        }
+      }
+      // HISTORIAL SIMPLE: actualizar las últimas 3 consultas
+      if (typeof question === 'string' && question.trim()) {
+        const q = question.trim().substring(0, 200); // truncate para seguridad
+        state.queryHistory = [
+          ...state.queryHistory.filter(h => h !== q), // remover si ya existe
+          q
+        ].slice(0, 3); // mantener solo las 3 más recientes
+        // Guardar en localStorage para persistencia entre sesiones
+        try {
+          const historyStorage = JSON.parse(localStorage.getItem('aj:query-history') || '[]');
+          historyStorage.unshift(q);
+          localStorage.setItem('aj:query-history', JSON.stringify(historyStorage.slice(0, 3)));
+        } catch (e) {
+          // Storage blocked: degrade to in-memory only
+        }
+      }
       if (state.authenticated) {
         state.balance = data.balance;
-        balanceBadge.textContent = `Saldo restante: ${data.balance} crédito${data.balance === 1 ? '' : 's'}`;
-        balanceBadge.classList.remove('hidden');
+        // Sin display de saldo restante en chat (ver issue #95791)
+        balanceBadge.classList.add('hidden');
 
         if (typeof options.onBalanceChange === 'function') {
           options.onBalanceChange(data.balance);
@@ -2409,4 +2521,102 @@ export function mountChat(container, options = {}) {
       container.replaceChildren();
     },
   };
+}
+
+// SESIÓN: estrategía "Local First, Cloud Sync"
+// - localStorage: principal (instantáneo, sin costo de servicio)
+// - API: sincronización secundaria (persistir entre dispositivos)
+// - Sincronización automática cuando hay conexión y usuario autenticado
+
+let storedSession = { caseId: null, lastUpdate: null };
+const SESSION_API = '/api/session-context';
+
+// Cargar desde localStorage primero (siempre disponible, cero latency)
+function loadSessionContext() {
+  try {
+    const stored = localStorage.getItem('aj:chat-session');
+    if (stored) {
+      storedSession = JSON.parse(stored);
+      // Sincronizar con API en background si hay sesión autenticada
+      if (state.authenticated) {
+        // Debounce: sincronizar cada 30 segundos como máximo, no en cada mensaje
+        clearTimeout(window._sessionSyncTimer);
+        window._sessionSyncTimer = setTimeout(syncSessionToAPI, 30000);
+      }
+      // Pre-fill the case identifier
+      const caseInput = document.querySelector('input[placeholder*="caso"], input[placeholder*="Caso"]');
+      if (caseInput && !caseInput.value) {
+        caseInput.value = storedSession.caseId;
+      }
+      return storedSession;
+    }
+  } catch (e) {
+    storedSession = { caseId: null, lastUpdate: null };
+  }
+  // Si no hay localStorage (modo privado), intentar cargar desde API
+  if (state.authenticated) {
+    syncSessionFromAPI();
+  }
+  return storedSession;
+}
+
+// Sincronizar sesión local a API en background
+async function syncSessionToAPI() {
+  try {
+    const resp = await fetch(SESSION_API, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify(storedSession)
+    });
+    // No esperamos resultado crítico - el localStorage sigue siendo fuente principal
+    // Si falla, los datos permanecen en localStorage del usuario
+  } catch (e) {
+    // Errores de red: silencioso, localStorage sigue siendo fuente principal
+  }
+}
+
+// Cargar sesión desde API si localStorage vacío o en nuevo dispositivo
+async function syncSessionFromAPI() {
+  try {
+    const resp = await fetch(SESSION_API, {
+      method: 'GET',
+      credentials: 'include',
+      headers: { 'Accept': 'application/json' }
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      // Solo actualizar localStorage si no hay datos locales o están vacíos
+      if (!storedSession.caseId) {
+        storedSession = data || { caseId: null, lastUpdate: null };
+        // Actualizar UI si había caseInput
+        const caseInput = document.querySelector('input[placeholder*="caso"], input[placeholder*="Caso"]');
+        if (caseInput && !caseInput.value && storedSession.caseId) {
+          caseInput.value = storedSession.caseId;
+        }
+      }
+    }
+  } catch (e) {
+    // Errores de red: mantener localStorage tal cual
+  }
+}
+
+// Guardar en localStorage (fuente principal)
+// Recibe el contexto del caso después de respuestas relevantes
+function saveSessionContext(context) {
+  try {
+    storedSession = context;
+    localStorage.setItem('aj:chat-session', JSON.stringify(context));
+    // Sincronizar en background a la API si hay usuario autenticado
+    if (state.authenticated) {
+      // Debounce: no sincronizar cada mensaje, esperar un momento
+      clearTimeout(window._sessionSyncTimer);
+      window._sessionSyncTimer = setTimeout(syncSessionToAPI, 30000);
+    }
+  } catch (e) {
+    // Storage blocked (private mode): silently fail
+  }
 }
