@@ -2522,3 +2522,101 @@ async function saveSessionContextRemote(context) {
     },
   };
 }
+
+// SESIÓN: estrategía "Local First, Cloud Sync"
+// - localStorage: principal (instantáneo, sin costo de servicio)
+// - API: sincronización secundaria (persistir entre dispositivos)
+// - Sincronización automática cuando hay conexión y usuario autenticado
+
+let storedSession = { caseId: null, lastUpdate: null };
+const SESSION_API = '/api/session-context';
+
+// Cargar desde localStorage primero (siempre disponible, cero latency)
+function loadSessionContext() {
+  try {
+    const stored = localStorage.getItem('aj:chat-session');
+    if (stored) {
+      storedSession = JSON.parse(stored);
+      // Sincronizar con API en background si hay sesión autenticada
+      if (state.authenticated) {
+        // Debounce: sincronizar cada 30 segundos como máximo, no en cada mensaje
+        clearTimeout(window._sessionSyncTimer);
+        window._sessionSyncTimer = setTimeout(syncSessionToAPI, 30000);
+      }
+      // Pre-fill the case identifier
+      const caseInput = document.querySelector('input[placeholder*="caso"], input[placeholder*="Caso"]');
+      if (caseInput && !caseInput.value) {
+        caseInput.value = storedSession.caseId;
+      }
+      return storedSession;
+    }
+  } catch (e) {
+    storedSession = { caseId: null, lastUpdate: null };
+  }
+  // Si no hay localStorage (modo privado), intentar cargar desde API
+  if (state.authenticated) {
+    syncSessionFromAPI();
+  }
+  return storedSession;
+}
+
+// Sincronizar sesión local a API en background
+async function syncSessionToAPI() {
+  try {
+    const resp = await fetch(SESSION_API, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify(storedSession)
+    });
+    // No esperamos resultado crítico - el localStorage sigue siendo fuente principal
+    // Si falla, los datos permanecen en localStorage del usuario
+  } catch (e) {
+    // Errores de red: silencioso, localStorage sigue siendo fuente principal
+  }
+}
+
+// Cargar sesión desde API si localStorage vacío o en nuevo dispositivo
+async function syncSessionFromAPI() {
+  try {
+    const resp = await fetch(SESSION_API, {
+      method: 'GET',
+      credentials: 'include',
+      headers: { 'Accept': 'application/json' }
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      // Solo actualizar localStorage si no hay datos locales o están vacíos
+      if (!storedSession.caseId) {
+        storedSession = data || { caseId: null, lastUpdate: null };
+        // Actualizar UI si había caseInput
+        const caseInput = document.querySelector('input[placeholder*="caso"], input[placeholder*="Caso"]');
+        if (caseInput && !caseInput.value && storedSession.caseId) {
+          caseInput.value = storedSession.caseId;
+        }
+      }
+    }
+  } catch (e) {
+    // Errores de red: mantener localStorage tal cual
+  }
+}
+
+// Guardar en localStorage (fuente principal)
+// Recibe el contexto del caso después de respuestas relevantes
+function saveSessionContext(context) {
+  try {
+    storedSession = context;
+    localStorage.setItem('aj:chat-session', JSON.stringify(context));
+    // Sincronizar en background a la API si hay usuario autenticado
+    if (state.authenticated) {
+      // Debounce: no sincronizar cada mensaje, esperar un momento
+      clearTimeout(window._sessionSyncTimer);
+      window._sessionSyncTimer = setTimeout(syncSessionToAPI, 30000);
+    }
+  } catch (e) {
+    // Storage blocked (private mode): silently fail
+  }
+}
