@@ -417,30 +417,74 @@ export function mountChat(container, options = {}) {
   });
 
   // MEMORIA DE SESIÓN: recordar contexto entre mensajes
-  const SESSION_STORAGE_KEY = 'aj:chat-session';
-  function loadSessionContext() {
+  // Sesión remota: usa la API para persistir contexto entre dispositivos
+  const SESSION_API = '/api/session-context';
+  let storedSession = { caseId: null, lastUpdate: null };
+
+  // Cargar contexto de sesión desde la API al iniciar
+  async function loadSessionContext() {
     try {
-      const stored = localStorage.getItem(SESSION_STORAGE_KEY);
-      return stored ? JSON.parse(stored) : null;
+      const resp = await fetch(SESSION_API, {
+        method: 'GET',
+        credentials: 'include',
+        headers: { 'Accept': 'application/json' }
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        storedSession = data || { caseId: null, lastUpdate: null };
+      }
     } catch (e) {
-      return null;
+      // Si falla la API, degradar a localStorage local
+      try {
+        const stored = localStorage.getItem('aj:chat-session');
+        storedSession = stored ? JSON.parse(stored) : { caseId: null, lastUpdate: null };
+      } catch (e2) {
+        storedSession = { caseId: null, lastUpdate: null };
+      }
     }
-  }
-  function saveSessionContext(context) {
-    try {
-      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(context));
-    } catch (e) {
-      // Storage blocked (private mode): degrade gracefully
-    }
-  }
-  const storedSession = loadSessionContext();
-  if (storedSession && storedSession.caseId) {
     // Pre-fill the case identifier if we have stored context
-    const caseInput = document.querySelector('input[placeholder*="caso"], input[placeholder*="Caso"]');
-    if (caseInput && !caseInput.value) {
-      caseInput.value = storedSession.caseId;
+    if (storedSession && storedSession.caseId) {
+      const caseInput = document.querySelector('input[placeholder*="caso"], input[placeholder*="Caso"]');
+      if (caseInput && !caseInput.value) {
+        caseInput.value = storedSession.caseId;
+      }
     }
   }
+  // Cargar al iniciar
+  loadSessionContext().then(() => {
+    // Se ejecuta después de cargar
+  });
+}
+
+async function saveSessionContextRemote(context) {
+  try {
+    const resp = await fetch(SESSION_API, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify(context)
+    });
+    if (!resp.ok) {
+      // Si falla la API, degradar a localStorage local
+      try {
+        localStorage.setItem('aj:chat-session', JSON.stringify(context));
+      } catch (e) {
+        // Storage blocked: silently fail
+      }
+    }
+  } catch (e) {
+    // Si falla la red, degradar a localStorage local
+    try {
+      localStorage.setItem('aj:chat-session', JSON.stringify(context));
+    } catch (e2) {
+      // Storage blocked: silently fail
+    }
+  }
+}
+
     'aria-pressed': initialVoiceEnabled ? 'true' : 'false',
     'aria-label': initialVoiceLabel,
     title: initialVoiceLabel,
@@ -2316,14 +2360,15 @@ export function mountChat(container, options = {}) {
           // Extraer posible identificador (Rol, número de caso, etc.) - patterns simples
           const match = data.answer.match(/[Rr]ol\s+[\d/-]+|[Cc]aso\s+[\d/-]+|[Nn]úmero\s+[\d]+|[Dd]emanda\s+[\d]+/i);
           if (match) {
-            saveSessionContext({ caseId: match[0], lastUpdate: new Date().toISOString() });
+            // Guardar en API remota para persistir entre dispositivos
+            saveSessionContextRemote({ caseId: match[0], lastUpdate: new Date().toISOString() });
           } else {
-            saveSessionContext({ caseId: 'caso-judicial', lastUpdate: new Date().toISOString() });
+            saveSessionContextRemote({ caseId: 'caso-judicial', lastUpdate: new Date().toISOString() });
           }
         } else if (stored.caseId) {
-          // Actualizar marca de tiempo
+          // Actualizar marca de tiempo en la API remota
           stored.lastUpdate = new Date().toISOString();
-          saveSessionContext(stored);
+          saveSessionContextRemote(stored);
         }
       }
       // HISTORIAL SIMPLE: actualizar las últimas 3 consultas
