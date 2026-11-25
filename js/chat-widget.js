@@ -1430,8 +1430,8 @@ export function mountChat(container, options = {}) {
           if (chargedDirect && chargedDirect.success) {
             if (typeof chargedDirect.new_balance === 'number') {
               state.balance = chargedDirect.new_balance;
-              balanceBadge.textContent = `Saldo restante: ${chargedDirect.new_balance} crédito${chargedDirect.new_balance === 1 ? '' : 's'}`;
-              balanceBadge.classList.remove('hidden');
+              // Sin display de saldo restante en chat (ver issue #95791)
+              balanceBadge.classList.add('hidden');
               if (typeof options.onBalanceChange === 'function') options.onBalanceChange(chargedDirect.new_balance);
             }
             ttsCooldownUntil = Date.now() + 10000;
@@ -1895,8 +1895,8 @@ export function mountChat(container, options = {}) {
         if (charged && charged.success) {
           if (typeof charged.new_balance === 'number') {
             state.balance = charged.new_balance;
-            balanceBadge.textContent = `Saldo restante: ${charged.new_balance} crédito${charged.new_balance === 1 ? '' : 's'}`;
-            balanceBadge.classList.remove('hidden');
+            // Sin display de saldo restante en chat (ver issue #95791)
+            balanceBadge.classList.add('hidden');
             if (typeof options.onBalanceChange === 'function') options.onBalanceChange(charged.new_balance);
           }
           ttsCooldownUntil = Date.now() + 10000;
@@ -2068,8 +2068,8 @@ export function mountChat(container, options = {}) {
         if (typeof d.new_balance === 'number') {
           state.balance = d.new_balance;
           state.authenticated = true;
-          balanceBadge.textContent = `Saldo restante: ${d.new_balance} crédito${d.new_balance === 1 ? '' : 's'}`;
-          balanceBadge.classList.remove('hidden');
+          // Sin display de saldo restante en chat (ver issue #95791)
+          balanceBadge.classList.add('hidden');
           if (typeof options.onBalanceChange === 'function') {
             options.onBalanceChange(d.new_balance);
           }
@@ -2277,8 +2277,8 @@ export function mountChat(container, options = {}) {
 
       if (state.authenticated) {
         state.balance = data.balance;
-        balanceBadge.textContent = `Saldo restante: ${data.balance} crédito${data.balance === 1 ? '' : 's'}`;
-        balanceBadge.classList.remove('hidden');
+        // Sin display de saldo restante en chat (ver issue #95791)
+        balanceBadge.classList.add('hidden');
 
         if (typeof options.onBalanceChange === 'function') {
           options.onBalanceChange(data.balance);
