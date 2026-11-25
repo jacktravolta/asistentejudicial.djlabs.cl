@@ -357,6 +357,8 @@ export function mountChat(container, options = {}) {
     botAvatar: null,
     ttsVoice: '',
     balance: null,
+    // HISTORIAL SIMPLE: últimas 3 consultas (para navegación rápida)
+    queryHistory: [],
   };
 
   container.classList.add(
@@ -412,6 +414,33 @@ export function mountChat(container, options = {}) {
     id: 'chat-voice-toggle',
     type: 'button',
     class: 'chat-action-btn',
+  });
+
+  // MEMORIA DE SESIÓN: recordar contexto entre mensajes
+  const SESSION_STORAGE_KEY = 'aj:chat-session';
+  function loadSessionContext() {
+    try {
+      const stored = localStorage.getItem(SESSION_STORAGE_KEY);
+      return stored ? JSON.parse(stored) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+  function saveSessionContext(context) {
+    try {
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(context));
+    } catch (e) {
+      // Storage blocked (private mode): degrade gracefully
+    }
+  }
+  const storedSession = loadSessionContext();
+  if (storedSession && storedSession.caseId) {
+    // Pre-fill the case identifier if we have stored context
+    const caseInput = document.querySelector('input[placeholder*="caso"], input[placeholder*="Caso"]');
+    if (caseInput && !caseInput.value) {
+      caseInput.value = storedSession.caseId;
+    }
+  }
     'aria-pressed': initialVoiceEnabled ? 'true' : 'false',
     'aria-label': initialVoiceLabel,
     title: initialVoiceLabel,
@@ -2192,16 +2221,19 @@ export function mountChat(container, options = {}) {
         + name
         + (source.scope === 'user' ? ' (tus documentos)' : '');
 
+      // Show resumen if available (short description of the source)
+      const resumen = source.resumen ? ` — ${source.resumen.substring(0, 100)}` : '';
+
       if (isSafeSourceUrl(source.url)) {
         const link = document.createElement('a');
         link.href = source.url.trim();
         link.target = '_blank';
         link.rel = 'noopener noreferrer';
         link.className = 'underline decoration-dotted';
-        link.textContent = label;
+        link.textContent = label + resumen;
         line.append(link);
       } else {
-        line.textContent = label;
+        line.textContent = label + resumen;
       }
       sourceList.append(line);
     }
@@ -2275,6 +2307,41 @@ export function mountChat(container, options = {}) {
         ? [...new Set(data.sources.map(s => String(s.source_id || '')).filter(Boolean))]
         : [];
 
+      // MEMORIA DE SESIÓN: guardar contexto del caso después de cada respuesta
+      if (state.authenticated && typeof data.answer === 'string' && data.answer.length > 20) {
+        const stored = loadSessionContext();
+        // Guardar identificador de caso si la respuesta menciona tipos de trámites judiciales
+        const caseDetected = /(demanda|recurso|apelación|queja|trascendencia|mediación)/i.test(data.answer);
+        if (caseDetected && !stored.caseId) {
+          // Extraer posible identificador (Rol, número de caso, etc.) - patterns simples
+          const match = data.answer.match(/[Rr]ol\s+[\d/-]+|[Cc]aso\s+[\d/-]+|[Nn]úmero\s+[\d]+|[Dd]emanda\s+[\d]+/i);
+          if (match) {
+            saveSessionContext({ caseId: match[0], lastUpdate: new Date().toISOString() });
+          } else {
+            saveSessionContext({ caseId: 'caso-judicial', lastUpdate: new Date().toISOString() });
+          }
+        } else if (stored.caseId) {
+          // Actualizar marca de tiempo
+          stored.lastUpdate = new Date().toISOString();
+          saveSessionContext(stored);
+        }
+      }
+      // HISTORIAL SIMPLE: actualizar las últimas 3 consultas
+      if (typeof question === 'string' && question.trim()) {
+        const q = question.trim().substring(0, 200); // truncate para seguridad
+        state.queryHistory = [
+          ...state.queryHistory.filter(h => h !== q), // remover si ya existe
+          q
+        ].slice(0, 3); // mantener solo las 3 más recientes
+        // Guardar en localStorage para persistencia entre sesiones
+        try {
+          const historyStorage = JSON.parse(localStorage.getItem('aj:query-history') || '[]');
+          historyStorage.unshift(q);
+          localStorage.setItem('aj:query-history', JSON.stringify(historyStorage.slice(0, 3)));
+        } catch (e) {
+          // Storage blocked: degrade to in-memory only
+        }
+      }
       if (state.authenticated) {
         state.balance = data.balance;
         // Sin display de saldo restante en chat (ver issue #95791)
