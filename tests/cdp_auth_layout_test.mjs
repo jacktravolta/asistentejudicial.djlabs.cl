@@ -687,6 +687,10 @@ async function probarConsola(cliente) {
     // código; el harness local corre en http://127.0.0.1 y la API sólo
     // permite los orígenes públicos. Se reporta pero no cuenta como fallo.
     if (texto.includes('CORS') || texto.includes('ERR_FAILED')) return false;
+    // El 401 de /auth/me es la sonda de sesión normal de un visitante
+    // anónimo (js/auth.js y js/checkout.js la hacen al cargar). No es un
+    // error del front.
+    if (texto.includes('/auth/me') && (texto.includes('401') || texto.includes('Unauthorized'))) return false;
     return true;
   });
 
