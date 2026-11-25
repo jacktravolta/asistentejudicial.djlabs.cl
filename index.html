@@ -1341,6 +1341,15 @@
           <p class="text-sm leading-relaxed text-slate-600">
             Guarda tus archivos aquí y decide cuáles puede usar el asistente en tus consultas.
           </p>
+          <p class="text-xs text-slate-500">
+            <strong>Créditos:</strong> La extracción y análisis de documentos consume créditos.
+            <span id="doc-credits-info" class="font-medium">Consultar saldo actual</span> en la billetera.
+          </p>
+          <p class="text-xs text-slate-500">
+            <strong>Privacidad:</strong> Los datos de trabajo tienen gracia de <strong>24 horas</strong>
+            y notificación amable doble (6h y 1h). Los datos de tu cuenta y Créditos se conservan
+            de forma independiente al borrado de trabajo.
+          </p>
         </header>
 
         <div class="flex flex-wrap items-center gap-3">
@@ -1370,7 +1379,10 @@
         <div id="documents-list" class="space-y-3" aria-live="polite"></div>
 
         <!-- Feedback for the client-side extraction and ingest pipeline. -->
-        <section id="error" class="hidden rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="alert" aria-live="polite"></section>
+        <section id="error" class="hidden rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="alert" aria-live="polite">
+      <p class="font-medium">Error al procesar el documento</p>
+      <p class="text-sm text-slate-600 mt-1">Intenta nuevamente o sube un archivo diferente. Si el problema persiste, contacta soporte.</p>
+    </section>
 
         <!-- Upload list: shows attached files with progress -->
         <section id="upload-list" class="hidden rounded-xl border border-slate-200 bg-white p-3 space-y-1 max-h-40 overflow-y-auto"></section>
@@ -1390,9 +1402,9 @@
             <h2 class="truncate text-sm font-semibold text-slate-800">Documento listo</h2>
             <span id="result-meta" class="shrink-0 text-xs text-slate-500"></span>
           </div>
-          <!-- The extracted content never renders in the conversation: it stays
-               hidden here (documents.js writes the preview) and only reaches the
-               engine after the user confirms. -->
+          <p class="text-xs text-slate-500 font-medium">
+            El contenido ha sido extraído correctamente. <a href="#panel-clients" class="underline text-brand-600 hover:text-brand-700">Guardar en tu cuenta</a> para usarlo en consultas.
+          </p>
           <pre id="result-text" class="hidden" aria-hidden="true"></pre>
           <p class="text-xs text-slate-500">El contenido no se muestra en el chat. Al confirmar se guardará en tu cuenta.</p>
           <div class="flex justify-end gap-2">
@@ -1407,7 +1419,10 @@
           </div>
         </section>
 
-        <section id="success" class="hidden rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900" role="status" aria-live="polite"></section>
+        <section id="success" class="hidden rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900" role="status" aria-live="polite">
+          <p class="font-medium">Éxito</p>
+          <p class="text-sm text-slate-600 mt-1">El documento ha sido guardado en tu cuenta y estará disponible para tus consultas.</p>
+        </section>
         <input id="file-input" type="file"
                accept=".png,.jpg,.jpeg,.webp,.gif,.pdf,.docx,.txt,.md,.mp3,.wav,.ogg,.m4a,.flac,.webm"
                class="sr-only">
@@ -2802,5 +2817,25 @@
 </template>
 
   <script type="module" src="./js/app.js?v=14"></script>
+<!-- Modal de historial de consultas -->
+<div id="history-modal" class="fixed inset-0 bg-black/40 backdrop-blur z-50 hidden items-center justify-center">
+  <div class="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 p-6 max-h-[80vh] overflow-y-auto">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-lg font-semibold text-slate-900">Historial de consultas</h3>
+      <button id="close-history-modal" class="text-slate-400 hover:text-slate-600">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+    <div id="history-list" class="space-y-2 text-sm text-slate-500">
+      <p class="text-center text-slate-400">No hay consultas guardadas</p>
+    </div>
+    <div class="mt-4 text-center">
+      <button id="clear-history-btn" class="px-4 py-1.5 text-sm text-brand-600 hover:bg-brand-50 rounded">Limpiar historial</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
