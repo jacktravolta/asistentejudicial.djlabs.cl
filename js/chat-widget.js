@@ -20,19 +20,23 @@
 
 import { apiUrl } from './api-base.js';
 import { avatarNode, botAvatarNode } from './avatar.js';
+import {
+  isConversationNotFoundError,
+  readConversationId,
+  writeConversationId,
+} from './conversation-session.js';
 import { playChime, soundsEnabled } from './sounds.js?v=2';
 import { typewrite } from './chat-typewriter.js?v=2';
 
 // The conversation id lives in sessionStorage (per TAB, not per origin): in
 // memory it was lost on every reload, so the next message started a brand new
-// conversation and the context from zero. sessionStorage is not shared between
-// tabs, so two windows with different hearts do not overwrite each other.
+// conversation and the context from zero. The owner id is stored alongside it
+// so switching accounts in the same tab cannot inherit a foreign conversation.
 //
-// The key lives at module scope because other modules (the conversations
-// library) must point the chat at an existing conversation BEFORE the widget
-// mounts: the widget is imported asynchronously and would otherwise drop the
-// id on the floor.
-const CONV_STORAGE_KEY = 'chat_conversation_id';
+// The storage helpers live in a separate module because other modules (the
+// conversations library) must point the chat at an existing conversation BEFORE
+// the widget mounts: the widget is imported asynchronously and would otherwise
+// drop the id on the floor.
 
 // Fallback for browsers where sessionStorage is blocked (private mode,
 // disabled cookies): the id survives in memory for the current page only.
@@ -51,8 +55,9 @@ export function useConversation(id) {
   memoryConversationId = value || null;
 
   try {
-    if (value) { sessionStorage.setItem(CONV_STORAGE_KEY, value); }
-    else { sessionStorage.removeItem(CONV_STORAGE_KEY); }
+    // The owner is intentionally left empty here. The widget binds the id to
+    // the current user when it mounts.
+    writeConversationId(sessionStorage, value, '');
   } catch (_) {
     // Storage blocked: keep the id in memory only.
   }
@@ -331,10 +336,19 @@ export function mountChat(container, options = {}) {
   // brand new conversation, charging context from zero. It looked like
   // "everything before is lost". sessionStorage is not shared between tabs,
   // so two windows with different hearts do not overwrite each other.
-  // The key itself is declared at module scope: see useConversation().
+  function currentUserId() {
+    if (!getUser) return '';
+    try {
+      const user = getUser();
+      return user && user.id !== null && user.id !== undefined ? String(user.id) : '';
+    } catch (_) {
+      return '';
+    }
+  }
+
   function storedConversationId() {
     try {
-      return sessionStorage.getItem(CONV_STORAGE_KEY) || memoryConversationId;
+      return readConversationId(sessionStorage, currentUserId());
     } catch (_) {
       return memoryConversationId; // storage blocked: degrade to memory only
     }
@@ -344,9 +358,8 @@ export function mountChat(container, options = {}) {
     const value = id ? String(id) : '';
     memoryConversationId = value || null;
     try {
-      if (value) { sessionStorage.setItem(CONV_STORAGE_KEY, value); }
-      else { sessionStorage.removeItem(CONV_STORAGE_KEY); }
-    } catch (_) { /* no crítico */ }
+      writeConversationId(sessionStorage, value, currentUserId());
+    } catch (_) { /* not critical */ }
   }
 
   const state = {
@@ -360,6 +373,11 @@ export function mountChat(container, options = {}) {
     // HISTORIAL SIMPLE: últimas 3 consultas (para navegación rápida)
     queryHistory: [],
   };
+
+  // Rebind a legacy or externally selected id to the current user as soon as
+  // the widget mounts. The API-level recovery still handles an actually stale
+  // id without charging or duplicating the question.
+  storeConversationId(state.conversationId);
 
   container.classList.add(
     'chat-widget',
@@ -2247,24 +2265,43 @@ export function mountChat(container, options = {}) {
       // The API origin comes from api-base.js (window.__API_BASE__). The
       // host page can still override it with options.apiBase.
       const chatBase = options.apiBase || apiUrl('');
-      const response = await fetch(chatBase + '/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-        // Cross-origin credentials: the httpOnly auth cookie rides along
-        // when the user is logged in.
-        credentials: 'include',
-        body: JSON.stringify({
+
+      const requestCompletion = async (conversationId, omitConversationId = false) => {
+        const body = {
           question,
-          ...(state.conversationId ? { conversation_id: state.conversationId } : {}),
+          ...(conversationId ? { conversation_id: conversationId } : {}),
           // Host-injected extra fields (e.g. dev-only per-request heart).
           ...(options.extraBody || {}),
-        }),
-      });
+        };
+        if (omitConversationId) delete body.conversation_id;
 
-      const payload = await response.json().catch(() => null);
+        return fetch(chatBase + '/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+          // Cross-origin credentials: the httpOnly auth cookie rides along
+          // when the user is logged in.
+          credentials: 'include',
+          body: JSON.stringify(body),
+        });
+      };
+
+      let response = await requestCompletion(state.conversationId);
+      let payload = await response.json().catch(() => null);
+
+      if (!response.ok && isConversationNotFoundError(response.status, payload)) {
+        // The API rejects a missing or foreign conversation before charging.
+        // Drop the stale id and retry the same question once without it. The
+        // user bubble is not repeated and the request is sent only once more.
+        // The typing row stays visible across the retry: the person must see
+        // that the assistant is still working.
+        state.conversationId = null;
+        storeConversationId(null);
+        response = await requestCompletion(null, true);
+        payload = await response.json().catch(() => null);
+      }
 
       typingRow.remove();
 

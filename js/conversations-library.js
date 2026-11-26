@@ -160,7 +160,7 @@ function createConversationRow(conversation) {
         // The widget mounts asynchronously, so the id is written to
         // sessionStorage FIRST: the widget picks it up when it mounts. An
         // already-mounted widget continues the conversation right away.
-        const chatWidgetModule = await import('./chat-widget.js?v=9');
+        const chatWidgetModule = await import('./chat-widget.js?v=10');
         chatWidgetModule.useConversation(id);
 
         if (window.chatWidget && typeof window.chatWidget.setConversationId === 'function') {
