@@ -68,7 +68,7 @@ de al contenido.
 - [x] B3 — `js/chat-widget.js`: encabezado por clase y enlaces con token del tema.
 - [x] B4 — Corregir el selector obsoleto del arnés de QA.
 - [x] B5 — Verificación visual antes/después con captura real (CDP, modo día y noche).
-- [x] B6 — Commit por unidad de trabajo en rama de feature, sin push (según la instrucción de ejecución).
+- [x] B6 — Commit por unidad de trabajo en rama de feature y publicación por fast-forward a `main` (`4ffa95a` → `65f2c5f`), verificada byte a byte en producción.
 
 ## Criterios de aceptación
 
@@ -155,6 +155,18 @@ de al contenido.
   para seguir. Te enviamos un enlace de verificación: tu cuenta está en pausa, tu trabajo
   está guardado y nada se pierde — apenas confirmes, sigues donde quedaste.» La aserción
   «aparece una burbuja del asistente con respuesta no vacía» pasó, confirmando B4.
+
+### Publicación (2026-11-26)
+
+- Rama `feat/chat-burbujas-legibilidad`: 4 commits (`546ee37`, `2e0d7b2`, `04ca56b`, `65f2c5f`).
+- `main` actualizado por fast-forward `4ffa95a` → `65f2c5f` y publicado en `origin/main`.
+- Se añadieron cache-busters `?v=16` a los dos CSS (`css/tokens.css`, `css/tailwind.css`): antes no los
+  tenían y el repo ya los usaba para los JS (`app.js?v=15`).
+- Producción verificada tras el despliegue: `https://asisjud.djlabs.cl/index.html` responde HTTP 200 y
+  sirve los enlaces con `?v=16`; los CSS coinciden byte a byte con el repo local
+  (`tokens.css` md5 `5a31d4efd71042a586c9e5c57cd28967`, `tailwind.css` md5 `0db89f848733a52db115c7cd45495191`).
+- Revisión nativa: RDD está desactivado globalmente (`receipt-driven development: off`), así que no
+  corrió revisión por recibos; la entrega siguió la política normal del repo.
 
 ## Riesgos residuales / pendientes
 
