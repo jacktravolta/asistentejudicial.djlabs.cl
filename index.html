@@ -1350,6 +1350,7 @@
           <button type="button" class="nav-item whitespace-nowrap rounded-full px-2.5 sm:px-3 py-1.5 text-[13px] sm:text-sm font-medium text-slate-600 transition hover:bg-brand-50 hover:text-brand-700" data-panel="conversations">Conversaciones</button>
           <button type="button" class="nav-item whitespace-nowrap rounded-full px-2.5 sm:px-3 py-1.5 text-[13px] sm:text-sm font-medium text-slate-600 transition hover:bg-brand-50 hover:text-brand-700" data-panel="laws">Leyes</button>
           <button type="button" class="nav-item whitespace-nowrap rounded-full px-2.5 sm:px-3 py-1.5 text-[13px] sm:text-sm font-medium text-slate-600 transition hover:bg-brand-50 hover:text-brand-700" data-panel="clients">Clientes</button>
+          <button type="button" class="nav-item whitespace-nowrap rounded-full px-2.5 sm:px-3 py-1.5 text-[13px] sm:text-sm font-medium text-slate-600 transition hover:bg-brand-50 hover:text-brand-700" data-panel="cases">Causas</button>
           <button type="button" class="nav-item whitespace-nowrap rounded-full px-2.5 sm:px-3 py-1.5 text-[13px] sm:text-sm font-medium text-slate-600 transition hover:bg-brand-50 hover:text-brand-700" data-panel="wallet">Billetera</button>
           <button type="button" class="nav-item whitespace-nowrap rounded-full px-2.5 sm:px-3 py-1.5 text-[13px] sm:text-sm font-medium text-slate-600 transition hover:bg-brand-50 hover:text-brand-700" data-panel="settings">Perfil</button>
           <button type="button" id="nav-admin" class="nav-item hidden whitespace-nowrap rounded-full px-2.5 sm:px-3 py-1.5 text-[13px] sm:text-sm font-medium text-slate-600 transition hover:bg-brand-50 hover:text-brand-700" data-panel="admin">Admin</button>
@@ -1414,6 +1415,27 @@
         </div>
 
         <div id="documents-list" class="space-y-3" aria-live="polite"></div>
+
+        <!-- Generated documents: listing and downloading are free. -->
+        <section>
+          <header class="space-y-1">
+            <h2 class="text-lg font-semibold text-slate-900 mt-6">Documentos generados</h2>
+            <p class="text-sm leading-relaxed text-slate-600">
+              Los documentos que generes con el asistente se guardan aquí. Descárgalos cuantas veces quieras: listar y descargar es gratis y no consume créditos.
+            </p>
+          </header>
+
+          <div class="flex flex-wrap items-center gap-3 mt-4">
+            <button id="generated-documents-refresh" type="button"
+                    class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-200">
+              Cargar documentos generados
+            </button>
+          </div>
+
+          <div id="generated-documents-list" class="space-y-3" aria-live="polite"></div>
+
+          <p id="generated-documents-status" class="hidden mt-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900"></p>
+        </section>
 
         <!-- Feedback for the client-side extraction and ingest pipeline. -->
         <section id="error" class="hidden rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="alert" aria-live="polite">
@@ -1595,6 +1617,107 @@
         <div id="clients-list" class="space-y-3" aria-live="polite"></div>
       </section>
     </div><!-- /#panel-clients -->
+
+    <div id="panel-cases" class="mx-auto max-w-6xl px-4 py-6 sm:px-6">
+      <header class="mb-4 space-y-1">
+        <h1 class="text-2xl font-semibold text-slate-900 sm:text-3xl">Mis causas y plazos</h1>
+        <p class="text-sm text-slate-600">
+          Lleva el registro de tus causas y sus plazos procesales: audiencias, resoluciones y estado.
+        </p>
+      </header>
+
+      <section class="space-y-4">
+        <form id="cases-form" class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div class="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label for="cases-rol" class="text-sm font-medium text-slate-700">Rol</label>
+              <input id="cases-rol" name="rol" type="text" autocomplete="off"
+                     class="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                     placeholder="Ej: 1234-2024">
+            </div>
+            <div>
+              <label for="cases-ruc" class="text-sm font-medium text-slate-700">RUC</label>
+              <input id="cases-ruc" name="ruc" type="text" autocomplete="off"
+                     class="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                     placeholder="Ej: 76.123.456-5">
+            </div>
+            <div>
+              <label for="cases-rit" class="text-sm font-medium text-slate-700">RIT</label>
+              <input id="cases-rit" name="rit" type="text" autocomplete="off"
+                     class="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                     placeholder="Ej: 1500-2024">
+            </div>
+            <div>
+              <label for="cases-tribunal" class="text-sm font-medium text-slate-700">Tribunal</label>
+              <input id="cases-tribunal" name="tribunal" type="text" autocomplete="off"
+                     class="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                     placeholder="Ej: Juzgado de Letras de Santiago">
+            </div>
+            <div>
+              <label for="cases-materia" class="text-sm font-medium text-slate-700">Materia</label>
+              <input id="cases-materia" name="materia" type="text" autocomplete="off"
+                     class="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                     placeholder="Ej: Familia">
+            </div>
+            <div>
+              <label for="cases-estado" class="text-sm font-medium text-slate-700">Estado</label>
+              <input id="cases-estado" name="estado" type="text" autocomplete="off"
+                     class="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                     placeholder="Ej: Tramitación">
+            </div>
+            <div>
+              <label for="cases-etapa" class="text-sm font-medium text-slate-700">Etapa</label>
+              <input id="cases-etapa" name="etapa" type="text" autocomplete="off"
+                     class="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                     placeholder="Ej: Audiencia de prueba">
+            </div>
+            <div>
+              <label for="cases-proxima_audiencia" class="text-sm font-medium text-slate-700">Próxima audiencia</label>
+              <input id="cases-proxima_audiencia" name="proxima_audiencia" type="date" autocomplete="off"
+                     class="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100">
+            </div>
+            <div class="sm:col-span-2">
+              <label for="cases-cliente_id" class="text-sm font-medium text-slate-700">Cliente asociado (opcional)</label>
+              <select id="cases-cliente_id" name="cliente_id"
+                      class="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                <option value="">Sin cliente asociado (opcional)</option>
+              </select>
+            </div>
+            <div>
+              <label for="cases-ultima_resolucion" class="text-sm font-medium text-slate-700">Última resolución</label>
+              <input id="cases-ultima_resolucion" name="ultima_resolucion" type="text" autocomplete="off"
+                     class="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                     placeholder="Resolución que dejó la causa">
+            </div>
+            <div>
+              <label for="cases-ultima_resolucion_fecha" class="text-sm font-medium text-slate-700">Fecha de la última resolución</label>
+              <input id="cases-ultima_resolucion_fecha" name="ultima_resolucion_fecha" type="date" autocomplete="off"
+                     class="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100">
+            </div>
+            <div>
+              <label for="cases-fecha_ingreso" class="text-sm font-medium text-slate-700">Fecha de ingreso</label>
+              <input id="cases-fecha_ingreso" name="fecha_ingreso" type="date" autocomplete="off"
+                     class="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100">
+            </div>
+            <div class="sm:col-span-2">
+              <label for="cases-notas" class="text-sm font-medium text-slate-700">Notas (opcional)</label>
+              <textarea id="cases-notas" name="notas" rows="3"
+                        class="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                        placeholder="Antecedentes que te sirva recordar."></textarea>
+            </div>
+          </div>
+          <button id="cases-submit" type="submit"
+                  class="mt-4 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-200">
+            Guardar causa
+          </button>
+          <p id="cases-form-error" class="mt-3 hidden rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" role="alert" aria-live="polite"></p>
+        </form>
+
+        <p id="cases-status" class="hidden rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900" role="status" aria-live="polite"></p>
+
+        <div id="cases-list" class="space-y-3" aria-live="polite"></div>
+      </section>
+    </div><!-- /#panel-cases -->
 
     <div id="panels"></div>
   </template>

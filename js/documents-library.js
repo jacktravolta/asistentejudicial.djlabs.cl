@@ -287,6 +287,18 @@ export function initDocumentsLibrary() {
   document.addEventListener('chat:documents-ingested', () => {
     void refreshDocumentsLibrary();
   });
+
+  // Generated documents (kind='generated'): listing and downloading are free.
+  import('./generated-documents-library.js?v=1').then((m) => {
+    if (m.initGeneratedDocumentsLibrary) {
+      m.initGeneratedDocumentsLibrary();
+    }
+    if (m.refreshGeneratedDocumentsLibrary) {
+      m.refreshGeneratedDocumentsLibrary();
+    }
+  }).catch((error) => {
+    console.error('[Documents] Failed to load the generated documents library:', error);
+  });
 }
 
 export async function refreshDocumentsLibrary() {

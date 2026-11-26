@@ -966,7 +966,7 @@
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, email, message, website: '' }),
+            body: JSON.stringify({ name, email, message, website: '', heart: HEART }),
           });
           const data = await response.json().catch(() => ({}));
 

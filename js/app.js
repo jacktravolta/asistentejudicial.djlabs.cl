@@ -699,7 +699,7 @@ function showPanel(name) {
 
   ensurePanelMount(name);
 
-  for (const panel of ['documents', 'chat', 'conversations', 'laws', 'clients', 'wallet', 'settings', 'notifications', 'admin']) {
+  for (const panel of ['documents', 'chat', 'conversations', 'laws', 'clients', 'cases', 'wallet', 'settings', 'notifications', 'admin']) {
     const el = $id('panel-' + panel);
     if (el) {
       el.classList.toggle('hidden', panel !== name);
@@ -762,6 +762,18 @@ function showPanel(name) {
       }
     }).catch((error) => {
       console.error('[App] Failed to load the clients library:', error);
+    });
+  }
+  if (name === 'cases') {
+    import('./cases-library.js?v=1').then((m) => {
+      if (m.initCasesLibrary) {
+        m.initCasesLibrary();
+      }
+      if (m.refreshCasesLibrary) {
+        m.refreshCasesLibrary();
+      }
+    }).catch((error) => {
+      console.error('[App] Failed to load the cases library:', error);
     });
   }
   if (name === 'wallet') {
@@ -1327,12 +1339,14 @@ function wireContactForm() {
       submitLabel.textContent = 'Enviando…';
     }
 
+    const heart = await resolveHeart();
+
     try {
       const response = await fetch(apiUrl('/contact'), {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name, email: email, message: message, website: '' }),
+        body: JSON.stringify({ name: name, email: email, message: message, website: '', heart }),
       });
       const data = await response.json().catch(() => ({}));
 
