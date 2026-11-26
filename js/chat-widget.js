@@ -414,49 +414,6 @@ export function mountChat(container, options = {}) {
     id: 'chat-voice-toggle',
     type: 'button',
     class: 'chat-action-btn',
-  });
-
-  // MEMORIA DE SESIÓN: recordar contexto entre mensajes
-  // Sesión remota: usa la API para persistir contexto entre dispositivos
-  const SESSION_API = '/api/session-context';
-  let storedSession = { caseId: null, lastUpdate: null };
-
-  // Cargar contexto de sesión desde la API al iniciar
-  async function loadSessionContext() {
-    try {
-      const resp = await fetch(SESSION_API, {
-        method: 'GET',
-        credentials: 'include',
-        headers: { 'Accept': 'application/json' }
-      });
-      if (resp.ok) {
-        const data = await resp.json();
-        storedSession = data || { caseId: null, lastUpdate: null };
-      }
-    } catch (e) {
-      // Si falla la API, degradar a localStorage local
-      try {
-        const stored = localStorage.getItem('aj:chat-session');
-        storedSession = stored ? JSON.parse(stored) : { caseId: null, lastUpdate: null };
-      } catch (e2) {
-        storedSession = { caseId: null, lastUpdate: null };
-      }
-    }
-    // Pre-fill the case identifier if we have stored context
-    if (storedSession && storedSession.caseId) {
-      const caseInput = document.querySelector('input[placeholder*="caso"], input[placeholder*="Caso"]');
-      if (caseInput && !caseInput.value) {
-        caseInput.value = storedSession.caseId;
-      }
-    }
-  }
-  // Cargar al iniciar
-  loadSessionContext().then(() => {
-    // Se ejecuta después de cargar
-  });
-
-
-
     'aria-pressed': initialVoiceEnabled ? 'true' : 'false',
     'aria-label': initialVoiceLabel,
     title: initialVoiceLabel,
@@ -464,6 +421,13 @@ export function mountChat(container, options = {}) {
     svgIcon(initialVoiceEnabled ? 'audio' : 'audio-muted'),
     el('span', { class: 'chat-voice-toggle-state sr-only' }, [initialVoiceLabel]),
   ]);
+
+  // MEMORIA DE SESIÓN: recordar contexto entre mensajes.
+  // La implementación vive a nivel de módulo ("Local First, Cloud Sync").
+  // Aquí solo se dispara la carga inicial para repoblar el caso en el input.
+  loadSessionContext();
+
+
 
   voiceToggle.addEventListener('click', () => {
     const enabled = !voiceEnabled();
@@ -2113,6 +2077,7 @@ export function mountChat(container, options = {}) {
         if (typeof d.new_balance === 'number') {
           state.balance = d.new_balance;
           state.authenticated = true;
+          sessionAuthenticated = true;
           // Sin display de saldo restante en chat (ver issue #95791)
           balanceBadge.classList.add('hidden');
           if (typeof options.onBalanceChange === 'function') {
@@ -2317,6 +2282,12 @@ export function mountChat(container, options = {}) {
       state.conversationId = data.conversation_id || state.conversationId;
       storeConversationId(state.conversationId);
       state.authenticated = typeof data.balance === 'number';
+      sessionAuthenticated = state.authenticated;
+      if (state.authenticated) {
+        // Primera respuesta autenticada: recupera el contexto desde la API
+        // (por ejemplo, en un dispositivo nuevo) sin pisar el local.
+        syncSessionFromAPI();
+      }
 
       // Sources RAG únicos citados por esta respuesta (para el borrado 🗑️).
       const ragSourceIds = Array.isArray(data.sources)
@@ -2496,8 +2467,16 @@ export function mountChat(container, options = {}) {
 }
 
 async function saveSessionContextRemote(context) {
+  // Local First: el contexto queda disponible de inmediato en este
+  // dispositivo. La API es la sincronización secundaria (entre dispositivos).
+  storedSession = context;
   try {
-    const resp = await fetch(SESSION_API, {
+    localStorage.setItem('aj:chat-session', JSON.stringify(context));
+  } catch (e) {
+    // Storage blocked: silently fail
+  }
+  try {
+    await fetch(SESSION_API, {
       method: 'POST',
       credentials: 'include',
       headers: {
@@ -2506,21 +2485,8 @@ async function saveSessionContextRemote(context) {
       },
       body: JSON.stringify(context)
     });
-    if (!resp.ok) {
-      // Si falla la API, degradar a localStorage local
-      try {
-        localStorage.setItem('aj:chat-session', JSON.stringify(context));
-      } catch (e) {
-        // Storage blocked: silently fail
-      }
-    }
   } catch (e) {
-    // Si falla la red, degradar a localStorage local
-    try {
-      localStorage.setItem('aj:chat-session', JSON.stringify(context));
-    } catch (e2) {
-      // Storage blocked: silently fail
-    }
+    // Si falla la red, el contexto ya quedó guardado en localStorage.
   }
 }
 
@@ -2528,6 +2494,11 @@ async function saveSessionContextRemote(context) {
 // - localStorage: principal (instantáneo, sin costo de servicio)
 // - API: sincronización secundaria (persistir entre dispositivos)
 // - Sincronización automática cuando hay conexión y usuario autenticado
+
+// El chat es el único consumidor del contexto de sesión. Publica aquí si la
+// persona está autenticada para que estos ayudantes de módulo no dependan
+// del estado local de mountChat.
+let sessionAuthenticated = false;
 
 let storedSession = { caseId: null, lastUpdate: null };
 const SESSION_API = '/api/session-context';
@@ -2539,7 +2510,7 @@ function loadSessionContext() {
     if (stored) {
       storedSession = JSON.parse(stored);
       // Sincronizar con API en background si hay sesión autenticada
-      if (state.authenticated) {
+      if (sessionAuthenticated) {
         // Debounce: sincronizar cada 30 segundos como máximo, no en cada mensaje
         clearTimeout(window._sessionSyncTimer);
         window._sessionSyncTimer = setTimeout(syncSessionToAPI, 30000);
@@ -2555,7 +2526,7 @@ function loadSessionContext() {
     storedSession = { caseId: null, lastUpdate: null };
   }
   // Si no hay localStorage (modo privado), intentar cargar desde API
-  if (state.authenticated) {
+  if (sessionAuthenticated) {
     syncSessionFromAPI();
   }
   return storedSession;
@@ -2612,7 +2583,7 @@ function saveSessionContext(context) {
     storedSession = context;
     localStorage.setItem('aj:chat-session', JSON.stringify(context));
     // Sincronizar en background a la API si hay usuario autenticado
-    if (state.authenticated) {
+    if (sessionAuthenticated) {
       // Debounce: no sincronizar cada mensaje, esperar un momento
       clearTimeout(window._sessionSyncTimer);
       window._sessionSyncTimer = setTimeout(syncSessionToAPI, 30000);

@@ -547,7 +547,7 @@ async function enviarUnaConsulta(cliente) {
 
   const antes = await cliente.evaluar(`
     return [...document.querySelectorAll('.chat-messages > div')]
-      .filter((row) => row.querySelector('.bg-slate-100')).length;
+      .filter((row) => row.querySelector('.bubble-assistant, .bg-slate-100')).length;
   `);
   const peticionesAntes = cliente.peticiones.length;
   const respuestasAntes = cliente.respuestas.length;
@@ -607,10 +607,10 @@ async function enviarUnaConsulta(cliente) {
     respuestaUI = await cliente.esperar(
       `(() => {
         const rows = [...document.querySelectorAll('.chat-messages > div')]
-          .filter((row) => row.querySelector('.bg-slate-100'));
+          .filter((row) => row.querySelector('.bubble-assistant, .bg-slate-100'));
         if (rows.length <= ${antes}) return null;
         const row = rows[rows.length - 1];
-        const bubble = row.querySelector('.bg-slate-100');
+        const bubble = row.querySelector('.bubble-assistant, .bg-slate-100');
         const text = (row.dataset.messageText || '').trim();
         const visibleText = (bubble && bubble.textContent || '').trim();
         return text && visibleText ? { text, visibleText } : null;

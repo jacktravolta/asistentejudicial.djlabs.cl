@@ -54,7 +54,7 @@ let chatWidgetMod = null;
 
 async function getChatWidget() {
   if (!chatWidgetMod) {
-    chatWidgetMod = await import('./chat-widget.js?v=11');
+    chatWidgetMod = await import('./chat-widget.js?v=12');
   }
   return chatWidgetMod;
 }
@@ -854,7 +854,7 @@ function ensureChat() {
   // The API refuses to guess the heart: without it the chat is rejected with
   // HEART_REQUIRED. Resolve it here so the widget sends it on the question,
   // the quote/charge and its own attachment ingest.
-  Promise.all([import('./chat-widget.js?v=11'), resolveHeart()])
+  Promise.all([import('./chat-widget.js?v=12'), resolveHeart()])
     .then(([m, heart]) => {
       container.replaceChildren();
       chatWidget = m.mountChat(container, {
@@ -900,50 +900,6 @@ function ensureChat() {
         fileInput.dispatchEvent(new Event('change', { bubbles: true }));
       });
 
-      lazyInitModules();
-    })
-    .then(([m, heart]) => {
-      container.replaceChildren();
-      try {
-        chatWidget = m.mountChat(container, {
-          title: 'Asistente legal',
-          placeholder: 'Escribe tu pregunta aquí…',
-          welcomeMessage:
-            'Hola, soy tu asistente. Adjunta un documento con el clip o pregúntame lo que necesites sobre tus documentos, los créditos o la privacidad.',
-          onBalanceChange: updateBalanceDisplays,
-          getUser: () => currentUser,
-          onAttach: () => {
-            $id('file-input')?.click();
-          },
-          extraBody: { heart },
-        });
-      } catch (mountError) {
-        throw mountError;
-      }
-      window.chatWidget = chatWidget;
-      ['dragenter', 'dragover'].forEach((eventName) => {
-        container.addEventListener(eventName, (event) => {
-          event.preventDefault();
-          container.classList.add('ring-2', 'ring-blue-300');
-        });
-      });
-      ['dragleave', 'drop'].forEach((eventName) => {
-        container.addEventListener(eventName, (event) => {
-          event.preventDefault();
-          container.classList.remove('ring-2', 'ring-blue-300');
-        });
-      });
-      container.addEventListener('drop', (event) => {
-        const file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
-        const fileInput = $id('file-input');
-        if (!file || !fileInput || typeof DataTransfer === 'undefined') {
-          return;
-        }
-        const dataTransfer = new DataTransfer();
-        dataTransfer.items.add(file);
-        fileInput.files = dataTransfer.files;
-        fileInput.dispatchEvent(new Event('change', { bubbles: true }));
-      });
       lazyInitModules();
     })
     .catch((error) => {
