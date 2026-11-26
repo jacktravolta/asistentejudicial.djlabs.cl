@@ -454,36 +454,8 @@ export function mountChat(container, options = {}) {
   loadSessionContext().then(() => {
     // Se ejecuta después de cargar
   });
-}
 
-async function saveSessionContextRemote(context) {
-  try {
-    const resp = await fetch(SESSION_API, {
-      method: 'POST',
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify(context)
-    });
-    if (!resp.ok) {
-      // Si falla la API, degradar a localStorage local
-      try {
-        localStorage.setItem('aj:chat-session', JSON.stringify(context));
-      } catch (e) {
-        // Storage blocked: silently fail
-      }
-    }
-  } catch (e) {
-    // Si falla la red, degradar a localStorage local
-    try {
-      localStorage.setItem('aj:chat-session', JSON.stringify(context));
-    } catch (e2) {
-      // Storage blocked: silently fail
-    }
-  }
-}
+
 
     'aria-pressed': initialVoiceEnabled ? 'true' : 'false',
     'aria-label': initialVoiceLabel,
@@ -2521,6 +2493,35 @@ async function saveSessionContextRemote(context) {
       container.replaceChildren();
     },
   };
+}
+
+async function saveSessionContextRemote(context) {
+  try {
+    const resp = await fetch(SESSION_API, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify(context)
+    });
+    if (!resp.ok) {
+      // Si falla la API, degradar a localStorage local
+      try {
+        localStorage.setItem('aj:chat-session', JSON.stringify(context));
+      } catch (e) {
+        // Storage blocked: silently fail
+      }
+    }
+  } catch (e) {
+    // Si falla la red, degradar a localStorage local
+    try {
+      localStorage.setItem('aj:chat-session', JSON.stringify(context));
+    } catch (e2) {
+      // Storage blocked: silently fail
+    }
+  }
 }
 
 // SESIÓN: estrategía "Local First, Cloud Sync"
