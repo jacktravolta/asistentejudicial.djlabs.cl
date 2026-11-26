@@ -902,12 +902,56 @@ function ensureChat() {
 
       lazyInitModules();
     })
+    .then(([m, heart]) => {
+      container.replaceChildren();
+      try {
+        chatWidget = m.mountChat(container, {
+          title: 'Asistente legal',
+          placeholder: 'Escribe tu pregunta aquí…',
+          welcomeMessage:
+            'Hola, soy tu asistente. Adjunta un documento con el clip o pregúntame lo que necesites sobre tus documentos, los créditos o la privacidad.',
+          onBalanceChange: updateBalanceDisplays,
+          getUser: () => currentUser,
+          onAttach: () => {
+            $id('file-input')?.click();
+          },
+          extraBody: { heart },
+        });
+      } catch (mountError) {
+        throw mountError;
+      }
+      window.chatWidget = chatWidget;
+      ['dragenter', 'dragover'].forEach((eventName) => {
+        container.addEventListener(eventName, (event) => {
+          event.preventDefault();
+          container.classList.add('ring-2', 'ring-blue-300');
+        });
+      });
+      ['dragleave', 'drop'].forEach((eventName) => {
+        container.addEventListener(eventName, (event) => {
+          event.preventDefault();
+          container.classList.remove('ring-2', 'ring-blue-300');
+        });
+      });
+      container.addEventListener('drop', (event) => {
+        const file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
+        const fileInput = $id('file-input');
+        if (!file || !fileInput || typeof DataTransfer === 'undefined') {
+          return;
+        }
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(file);
+        fileInput.files = dataTransfer.files;
+        fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      lazyInitModules();
+    })
     .catch((error) => {
       chatMounted = false;
       console.error('[App] Failed to mount chat widget:', error);
       const notice = document.createElement('p');
       notice.className = 'rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900';
-      notice.textContent = 'No pudimos cargar el chat en este momento. Puedes volver a intentarlo al cambiar de sección.';
+      notice.textContent = 'No pudimos cargar el chat: ' + (error && error.message ? error.message : 'error desconocido') + '. Puedes volver a intentarlo al cambiar de sección.';
       container.replaceChildren(notice);
     });
 }
