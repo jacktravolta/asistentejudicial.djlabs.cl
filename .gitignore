@@ -5,3 +5,6 @@ dist/
 
 # Cache del agente (se regenera con skill-registry refresh)
 .atl/
+
+# Índice local de CodeGraph (se regenera solo; nunca versionar)
+.codegraph/
