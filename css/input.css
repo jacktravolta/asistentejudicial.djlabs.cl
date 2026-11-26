@@ -54,4 +54,15 @@
     flex: 0 0 auto;
     pointer-events: none;
   }
+
+  .chat-md-heading {
+    color: rgb(var(--c-text));
+    font-weight: 600;
+    font-size: 14px;
+    margin: 10px 0 4px;
+  }
+
+  .bubble strong {
+    font-weight: 600;
+  }
 }

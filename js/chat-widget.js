@@ -166,11 +166,11 @@ function el(tag, attrs = {}, children = []) {
     // Links first so their brackets/parens never look like list syntax.
     s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+|\/[^\s)]*)\)/g, (m, t, u) =>
       '<a href="' + u + '" target="_blank" rel="noopener noreferrer" '
-      + 'style="color:#2563eb;text-decoration:underline;">' + t + '</a>');
+      + 'style="color:var(--c-accent-strong);text-decoration:underline;">' + t + '</a>');
     // Bare URLs -> clickable, new window (escaped text, so only safe chars).
     s = s.replace(/(^|[\s(])((?:https?:\/\/)[^\s<)"']+)/g, (m, pre, u) =>
       pre + '<a href="' + u + '" target="_blank" rel="noopener noreferrer" '
-      + 'style="color:#2563eb;text-decoration:underline;word-break:break-all;">' + u + '</a>');
+      + 'style="color:var(--c-accent-strong);text-decoration:underline;word-break:break-all;">' + u + '</a>');
     // Chilean phone numbers -> WhatsApp (wa.me). Only +56/56-prefixed or
     // bare mobile-shaped 9 XXXX XXXX groups; never inside a longer number.
     s = s.replace(/(^|[^\d.\w])(\+?56[\s.-]?)?(9[\s.-]?\d{4}[\s.-]?\d{4})(?!\d)/g, (m, pre, cc, num) => {
@@ -225,7 +225,7 @@ function el(tag, attrs = {}, children = []) {
       const ordered = trimmed.match(/^(\d{1,2})[.)]\s+(.*)$/);
       if (heading) {
         closePara(); closeList();
-        out.push('<p style="margin:10px 0 4px;font-weight:700;font-size:14px;color:#0f172a;">'
+        out.push('<p class="chat-md-heading">'
           + mdInline(escapeHtmlText(heading[1])) + '</p>');
         continue;
       }
