@@ -54,7 +54,7 @@ let chatWidgetMod = null;
 
 async function getChatWidget() {
   if (!chatWidgetMod) {
-    chatWidgetMod = await import('./chat-widget.js?v=10');
+    chatWidgetMod = await import('./chat-widget.js?v=11');
   }
   return chatWidgetMod;
 }
@@ -854,7 +854,7 @@ function ensureChat() {
   // The API refuses to guess the heart: without it the chat is rejected with
   // HEART_REQUIRED. Resolve it here so the widget sends it on the question,
   // the quote/charge and its own attachment ingest.
-  Promise.all([import('./chat-widget.js?v=10'), resolveHeart()])
+  Promise.all([import('./chat-widget.js?v=11'), resolveHeart()])
     .then(([m, heart]) => {
       container.replaceChildren();
       chatWidget = m.mountChat(container, {
